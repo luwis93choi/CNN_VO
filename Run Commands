@@ -1,0 +1,8 @@
+[Train a new model]
+python3 main.py -m train -n '1' -c '0' -s './' -i '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/dataset/sequences' -p '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/data_odometry_poses/dataset/poses' -e 200 -b 8 -l 0.000001 -E '[user email]' -P '[user email pw]' -R '[recipient email]'
+
+[Train a pre-trained model]
+python3 main.py -m train_pretrained_model -c '0' -s './DeepVO_Scale_Estimation_2020-11-17 12:44:11.181981.pth' -i '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/dataset/sequences' -p '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/data_odometry_poses/dataset/poses' -e 200 -b 1 -l 0.01 -E '[user email]' -P '[user email pw]' -R '[recipient email]'
+
+[Test]
+python3 main.py -m test -c '0' -s '/home/luwis/ICSL_Project/DeepVO_TrainedModel/201128/DeepVO_2020-11-28 00_24_51.547342.pth' -i '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/dataset/sequences' -p '/media/luwis/Linux Workspace/ICSL_Project/Visual SLAM/KITTI_data_odometry_color/data_odometry_poses/dataset/poses' -e 1 -b 1 -l 0.001 -E '[user email]' -P '[user email pw]' -R '[recipient email]'
