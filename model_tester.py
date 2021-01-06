@@ -88,6 +88,8 @@ class tester():
         self.translation_loss = nn.MSELoss()
         self.angular_loss = nn.MSELoss()
 
+        self.pose_loss = nn.MSELoss()
+
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
 
@@ -142,15 +144,15 @@ class tester():
                             prev_current_odom = Variable(prev_current_odom.to(self.PROCESSOR))
 
                         ### Model Prediction ###
-                        estimated_T, estimated_R = self.NN_model(prev_current_img)
+                        estimated_pose_vect = self.NN_model(prev_current_img)
                         
-                        predicted_dx = estimated_T.data.cpu().numpy()[0][0]
-                        predicted_dy = estimated_T.data.cpu().numpy()[0][1]
-                        predicted_dz = estimated_T.data.cpu().numpy()[0][2]
+                        predicted_dx = estimated_pose_vect.data.cpu().numpy()[0][0]
+                        predicted_dy = estimated_pose_vect.data.cpu().numpy()[0][1]
+                        predicted_dz = estimated_pose_vect.data.cpu().numpy()[0][2]
 
-                        predicted_roll = estimated_R.data.cpu().numpy()[0][0]
-                        predicted_pitch = estimated_R.data.cpu().numpy()[0][1]
-                        predicted_yaw = estimated_R.data.cpu().numpy()[0][2]
+                        predicted_roll = estimated_pose_vect.data.cpu().numpy()[0][3]
+                        predicted_pitch = estimated_pose_vect.data.cpu().numpy()[0][4]
+                        predicted_yaw = estimated_pose_vect.data.cpu().numpy()[0][5]
 
                         ### VO Estimation Plotting ##
                         estimated_x = estimated_x + predicted_dx
@@ -173,10 +175,7 @@ class tester():
                         plt.show(block=False)
 
                         ### Loss Computation ###
-                        loss_T = self.translation_loss(estimated_T.float(), prev_current_odom[:, :3].float())
-                        loss_R = self.angular_loss(estimated_R.float(), prev_current_odom[:, 3:].float())
-
-                        self.loss = loss_T + loss_R
+                        self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
 
                         ### Accumulate total loss ###
                         loss_sum += float(self.loss.item())

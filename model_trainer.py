@@ -85,11 +85,12 @@ class trainer():
 
         self.translation_loss = nn.MSELoss()
         self.angular_loss = nn.MSELoss()
-        self.loss = None
+        #self.loss = None
+        self.pose_loss = nn.MSELoss()
 
-        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.00001, amsgrad=True)
+        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.001, amsgrad=True)
 
-        summary(self.NN_model, Variable(torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
+        #summary(self.NN_model, Variable(torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -102,6 +103,14 @@ class trainer():
 
         for epoch in range(self.train_epoch):
 
+            estimated_x = 0.0
+            estimated_y = 0.0
+            estimated_z = 0.0
+
+            GT_x = 0.0
+            GT_y = 0.0
+            GT_z = 0.0
+            
             print('[EPOCH] : {}'.format(epoch))
 
             loss_sum = 0.0
@@ -130,14 +139,55 @@ class trainer():
                             prev_current_odom = Variable(prev_current_odom.to(self.PROCESSOR))
 
                         ### Model Train ###
-                        estimated_T, estimated_R = self.NN_model(prev_current_img)
+                        estimated_pose_vect = self.NN_model(prev_current_img)
 
-                        ### Loss Computation ###
-                        loss_T = self.translation_loss(estimated_T.float(), prev_current_odom[:, :3].float())
-                        loss_R = self.angular_loss(estimated_R.float(), prev_current_odom[:, 3:].float())
+                        # ### Loss Computation ###
+                        # predicted_dx = estimated_T.data[0][0]
+                        # predicted_dy = estimated_T.data[0][1]
+                        # predicted_dz = estimated_T.data[0][2]
 
-                        self.loss = loss_T + loss_R
+                        # predicted_roll = estimated_R.data[0][0]
+                        # predicted_pitch = estimated_R.data[0][1]
+                        # predicted_yaw = estimated_R.data[0][2]
 
+                        # estimated_x = estimated_x + predicted_dx
+                        # estimated_y = estimated_y + predicted_dy
+                        # estimated_z = estimated_z + predicted_dz
+
+                        # GT = prev_current_odom.data
+                        # GT_prev_current_x = GT[0][0]
+                        # GT_prev_current_y = GT[0][1]
+                        # GT_prev_current_z = GT[0][2]
+
+                        # GT_x = GT_x + GT_prev_current_x
+                        # GT_y = GT_y + GT_prev_current_y
+                        # GT_z = GT_z + GT_prev_current_z
+
+                        # print('----------------------------------------------------------------------------')
+                        # print('predicted_dx : {} | predicted_dy : {} | predicted_dz : {}'.format(predicted_dx, predicted_dy, predicted_dz))
+                        # print('estimated_x : {} | estimated_y : {} | estimated_z : {}'.format(estimated_x, estimated_y, estimated_z))
+                        # print('GT_prev_current_x : {} | GT_prev_current_y : {} | GT_prev_current_z : {}'.format(GT_prev_current_x, GT_prev_current_y, GT_prev_current_z))
+                        # print('GT_x : {} | GT_y : {} | GT_z : {}'.format(GT_x, GT_y, GT_z))
+
+                        # print()
+                        # estimated_T.data[0][0] = estimated_x
+                        # estimated_T.data[0][1] = estimated_y
+                        # estimated_T.data[0][2] = estimated_z
+
+                        # prev_current_odom.data[0][0] = GT_x
+                        # prev_current_odom.data[0][1] = GT_y
+                        # prev_current_odom.data[0][2] = GT_z
+
+                        # print('estimated_T : {}'.format(estimated_T))
+                        # print('estimated_R : {}'.format(estimated_R))
+                        # print('prev_current_odom : {}'.format(prev_current_odom))
+
+                        #loss_T = self.translation_loss(estimated_T.float(), prev_current_odom[:, :3].float())
+                        #loss_R = self.angular_loss(estimated_R.float(), prev_current_odom[:, 3:].float())
+
+                        self.loss = 6 * self.pose_loss(estimated_pose_vect[0].float(), prev_current_odom[0].float())
+                        #print('estimated_pose_vect : {}'.format(estimated_pose_vect[0].float()))
+                        #print('prev_current_odom : {}'.format(prev_current_odom[0].float()))
                         ### Backpropagation & Parameter Update ###
                         self.optimizer.zero_grad()
                         self.loss.backward()
@@ -146,7 +196,7 @@ class trainer():
                         ### Accumulate total loss ###
                         loss_sum += float(self.loss.item())
 
-                        print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {} / Total Loss : {}'.format(epoch, self.train_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+                        print('[Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), loss_sum))
 
                         # print(prev_current_odom)
                         # print(estimated_T)
@@ -158,6 +208,7 @@ class trainer():
             after_epoch = time.time()
 
             training_loss.append(loss_sum)
+            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
             print(training_loss)
 
             #torch.save(self.NN_model, './CNN_VO_' + start_time + '.pth')
