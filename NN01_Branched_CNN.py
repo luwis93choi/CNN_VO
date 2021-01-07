@@ -20,8 +20,8 @@ class Branched_CNN(nn.Module):
         ###################################################################################################
 
         self.conv1 = nn.Conv2d(in_channels=6, out_channels=6, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), bias=False)
-        self.leakyrelu1 = nn.LeakyReLU(0.1)
         self.batchnorm1 = nn.BatchNorm2d(6)
+        self.leakyrelu1 = nn.LeakyReLU(0.1)
         self.dropout1 = nn.Dropout(0.5)
         self.avgpool1 = nn.AvgPool2d(kernel_size=3)
         self.maxpool1 = nn.MaxPool2d(kernel_size=3, stride=1)
@@ -61,8 +61,8 @@ class Branched_CNN(nn.Module):
 
         # Forward pass through Common CNN Layer 1
         x = self.conv1(x)
-        x = self.leakyrelu1(x)
         x = self.batchnorm1(x)
+        x = self.leakyrelu1(x)
         x = self.dropout1(x)
         x = self.avgpool1(x)
         x = self.maxpool1(x)
