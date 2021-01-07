@@ -78,7 +78,7 @@ class tester():
         self.NN_model.train()   # For unknown reason, switching to evaluation mode greatly degrades the performance of the model.
                                 # Also, it seems that evaluation mode does not turn off batch normalizatio in the model. (track_running_stats stays True even after eval())
                                 # Reference : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
-                                #           : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
+                                #           : https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323
                                 #           : https://gldmg.tistory.com/124
                                 # In order to temporarily address this issue, the model stays on traning mode, but it does not update any type of gradients using optimizers.
 
