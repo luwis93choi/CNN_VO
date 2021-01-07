@@ -18,7 +18,7 @@ import sys
 
 class trainer():
 
-    def __init__(self, NN_model=None,
+    def __init__(self, NN_model=None, checkpoint=None,
                        use_cuda=True, cuda_num='',
                        loader_preprocess_param=transforms.Compose([]), 
                        model_path='./',
@@ -71,9 +71,6 @@ class trainer():
             self.NN_model.to(self.PROCESSOR)
             self.model_path = './'
 
-        self.NN_model.train()
-        self.NN_model.training = True
-
         self.train_loader_list = []
         for i in range(len(train_sequence)):
             self.train_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
@@ -90,7 +87,24 @@ class trainer():
 
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.001, amsgrad=True)
 
-        #summary(self.NN_model, Variable(torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
+        # summary(self.NN_model, Variable(torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
+
+        ### Model reloading ###
+        if checkpoint != None:
+            print('Re-training')
+
+            if NN_model == None:
+
+                sys.exit('[Tester ERROR] No NN model is specified')
+
+            else:
+
+                self.NN_model = NN_model
+                self.NN_model.load_state_dict(checkpoint['model_state_dict'])
+                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                self.epoch = checkpoint['epoch']
+                self.loss = checkpoint['loss']
+                self.model_path = './'
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -116,6 +130,8 @@ class trainer():
             loss_sum = 0.0
 
             before_epoch = time.time()
+
+            self.NN_model.train(True)
 
             for train_loader in self.train_loader_list:
 
@@ -206,6 +222,8 @@ class trainer():
                         # print('loss R : {}'.format(loss_R.item()))
 
             after_epoch = time.time()
+
+            self.NN_model.train(False)
 
             training_loss.append(loss_sum)
             print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))

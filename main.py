@@ -53,32 +53,32 @@ if cuda_num is None:
 epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
-#train_sequence = ['00', '01', '02', '05', '08', '09']
-train_sequence = ['01']
+train_sequence = ['00', '01', '02', '05', '06', '08', '09']
+#train_sequence = ['01']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
 test_sequence = ['01']
 
 normalize = transforms.Normalize(
     
-    mean=[0.19007764876619865, 0.15170388157131237, 0.10659445665650864],
-    std=[0.2610784009469139, 0.25729316928935814, 0.25163823815039915]
+    # mean=[0.19007764876619865, 0.15170388157131237, 0.10659445665650864],
+    # std=[0.2610784009469139, 0.25729316928935814, 0.25163823815039915]
     
-    #mean=[127. / 255., 127. / 255., 127. / 255.],
-    #std=[1 / 255., 1 / 255., 1 / 255.]
+    mean=[127. / 255., 127. / 255., 127. / 255.],
+    std=[1 / 255., 1 / 255., 1 / 255.]
 )
-
-# preprocess = transforms.Compose([
-#     transforms.Resize((384, 1280)),
-#     transforms.CenterCrop((384, 1280)),
-#     transforms.ToTensor(),
-#     normalize
-# ])
 
 preprocess = transforms.Compose([
     transforms.Resize((384, 1280)),
     transforms.CenterCrop((384, 1280)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    normalize
 ])
+
+# preprocess = transforms.Compose([
+#     transforms.Resize((384, 1280)),
+#     transforms.CenterCrop((384, 1280)),
+#     transforms.ToTensor()
+# ])
 
 if args['mode'] == 'train':
 
@@ -115,7 +115,7 @@ elif args['mode'] == 'train_pretrained_model':
         else:
             sys.exit('[main ERROR] Invalid checkpoint loading')
 
-    model_trainer = trainer(NN_model=NN_model, 
+    model_trainer = trainer(NN_model=NN_model, checkpoint=checkpoint,
                              use_cuda=True, cuda_num=cuda_num,
                              loader_preprocess_param=preprocess,
                              model_path=model_path,

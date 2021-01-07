@@ -75,7 +75,21 @@ class tester():
 
         self.NN_model.to(self.PROCESSOR)
 
-        self.NN_model.eval()
+        self.NN_model.train()   # For unknown reason, switching to evaluation mode greatly degrades the performance of the model.
+                                # Also, it seems that evaluation mode does not turn off batch normalizatio in the model. (track_running_stats stays True even after eval())
+                                # Reference : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
+                                #           : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
+                                #           : https://gldmg.tistory.com/124
+                                # In order to temporarily address this issue, the model stays on traning mode, but it does not update any type of gradients using optimizers.
+
+        #self.NN_model.eval()
+        # for layer in self.NN_model.children():
+        #     print(layer)
+        #     if type(layer) == nn.BatchNorm2d:
+        #         print(type(layer))
+        #         print('Disable BatchNorm')
+        #         layer.track_running_stats = True
+
 
         self.test_loader_list = []
         for i in range(len(test_sequence)):
@@ -120,8 +134,9 @@ class tester():
 
         for epoch in range(self.test_epoch):
             
+            # Prevent the model from updating gradients by adding 'torch.no_grad()' & not using optmizer steps
             with torch.no_grad():
-
+                
                 print('[EPOCH] : {}'.format(epoch))
 
                 loss_sum = 0.0
