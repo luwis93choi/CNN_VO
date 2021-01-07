@@ -56,7 +56,7 @@ learning_rate = args['learning_rate']
 #train_sequence = ['00', '01', '02', '05', '08', '09']
 train_sequence = ['01']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
-test_sequence = ['00']
+test_sequence = ['01']
 
 normalize = transforms.Normalize(
     

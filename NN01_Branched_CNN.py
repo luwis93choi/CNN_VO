@@ -25,7 +25,6 @@ class Branched_CNN(nn.Module):
 
         return conv
 
-    # DeepVO NN Initialization
     # Overriding base class of neural network (nn.Module)
     def __init__(self):
         super(Branched_CNN, self).__init__()

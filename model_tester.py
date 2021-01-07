@@ -70,20 +70,21 @@ class tester():
 
                 self.NN_model = NN_model
                 self.NN_model.load_state_dict(checkpoint['model_state_dict'])
-                self.NN_model.to(self.PROCESSOR)
 
                 self.model_path = './'
 
-        self.NN_model.eval()
-        self.NN_model.evaluation = True
+        self.NN_model.train()
+
+        self.NN_model.to(self.PROCESSOR)
 
         self.test_loader_list = []
         for i in range(len(test_sequence)):
             self.test_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
-                                                                              pose_dataset_path=self.pose_dataset_path,
-                                                                              transform=loader_preprocess_param,
-                                                                              sequence=test_sequence[i]),
-                                                                              batch_size=self.test_batch, shuffle=False, drop_last=True))
+                                                                                   pose_dataset_path=self.pose_dataset_path,
+                                                                                   transform=loader_preprocess_param,
+                                                                                   sequence=test_sequence[i],
+                                                                                   batch_size=self.test_batch),
+                                                                                   batch_size=self.test_batch, shuffle=False, drop_last=True))
 
         self.translation_loss = nn.MSELoss()
         self.angular_loss = nn.MSELoss()
@@ -131,57 +132,60 @@ class tester():
 
                     print('-------')
                     for batch_idx, (sequence, prev_current_img, prev_current_odom) in enumerate(test_loader):
-                        
-                        ### Input Image Display ###
-                        # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                        # plt.pause(0.001)
-                        # plt.show(block=False)
-                        # plt.clf()
+                            
+                        if batch_idx == 0:
+                            print('Index 0 Skip')
 
-                        ### Data GPU Transfer ###
-                        if self.use_cuda == True:
-                            prev_current_img = Variable(prev_current_img.to(self.PROCESSOR))
-                            prev_current_odom = Variable(prev_current_odom.to(self.PROCESSOR))
+                        else:
+                            ### Input Image Display ###
+                            # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
+                            # plt.pause(0.001)
+                            # plt.show(block=False)
+                            # plt.clf()
 
-                        ### Model Prediction ###
-                        estimated_pose_vect = self.NN_model(prev_current_img)
-                        
-                        predicted_dx = estimated_pose_vect.data.cpu().numpy()[0][0]
-                        predicted_dy = estimated_pose_vect.data.cpu().numpy()[0][1]
-                        predicted_dz = estimated_pose_vect.data.cpu().numpy()[0][2]
+                            ### Data GPU Transfer ###
+                            if self.use_cuda == True:
+                                prev_current_img = Variable(prev_current_img.to(self.PROCESSOR))
+                                prev_current_odom = Variable(prev_current_odom.to(self.PROCESSOR))
 
-                        predicted_roll = estimated_pose_vect.data.cpu().numpy()[0][3]
-                        predicted_pitch = estimated_pose_vect.data.cpu().numpy()[0][4]
-                        predicted_yaw = estimated_pose_vect.data.cpu().numpy()[0][5]
+                            ### Model Prediction ###
+                            estimated_pose_vect = self.NN_model(prev_current_img)
+                            
+                            predicted_dx = estimated_pose_vect.data.cpu().numpy()[0][0]
+                            predicted_dy = estimated_pose_vect.data.cpu().numpy()[0][1]
+                            predicted_dz = estimated_pose_vect.data.cpu().numpy()[0][2]
 
-                        ### VO Estimation Plotting ##
-                        estimated_x = estimated_x + predicted_dx
-                        estimated_z = estimated_z + predicted_dz
+                            predicted_roll = estimated_pose_vect.data.cpu().numpy()[0][3]
+                            predicted_pitch = estimated_pose_vect.data.cpu().numpy()[0][4]
+                            predicted_yaw = estimated_pose_vect.data.cpu().numpy()[0][5]
 
-                        plt.plot(estimated_x, estimated_z, 'bo')
+                            ### VO Estimation Plotting ##
+                            estimated_x = estimated_x + predicted_dx
+                            estimated_z = estimated_z + predicted_dz
 
-                        ### Groundtruth Plotting ###
-                        GT = prev_current_odom.data.cpu().numpy()
-                        GT_prev_current_x = GT[0][0]
-                        GT_prev_current_y = GT[0][1]
-                        GT_prev_current_z = GT[0][2]
+                            plt.plot(estimated_x, estimated_z, 'bo')
 
-                        GT_x = GT_x + GT_prev_current_x
-                        GT_y = GT_y + GT_prev_current_y
-                        GT_z = GT_z + GT_prev_current_z
+                            ### Groundtruth Plotting ###
+                            GT = prev_current_odom.data.cpu().numpy()
+                            GT_prev_current_x = GT[0][0]
+                            GT_prev_current_y = GT[0][1]
+                            GT_prev_current_z = GT[0][2]
 
-                        plt.plot(GT_x, GT_z, 'ro')
-                        plt.pause(0.001)
-                        plt.show(block=False)
+                            GT_x = GT_x + GT_prev_current_x
+                            GT_y = GT_y + GT_prev_current_y
+                            GT_z = GT_z + GT_prev_current_z
 
-                        ### Loss Computation ###
-                        self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
+                            plt.plot(GT_x, GT_z, 'ro')
+                            plt.pause(0.001)
+                            plt.show(block=False)
 
-                        ### Accumulate total loss ###
-                        loss_sum += float(self.loss.item())
+                            ### Loss Computation ###
+                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
 
-                        print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {} / Total Loss : {}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+                            ### Accumulate total loss ###
+                            loss_sum += float(self.loss.item())
 
+                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {} / Total Loss : {}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
 
                 after_epoch = time.time()
 

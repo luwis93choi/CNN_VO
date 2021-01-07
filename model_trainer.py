@@ -211,7 +211,7 @@ class trainer():
             print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
             print(training_loss)
 
-            #torch.save(self.NN_model, './CNN_VO_' + start_time + '.pth')
+            torch.save(self.NN_model, './CNN_VO_' + start_time + '.pth')
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
