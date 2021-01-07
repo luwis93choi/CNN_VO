@@ -73,9 +73,9 @@ class tester():
 
                 self.model_path = './'
 
-        self.NN_model.train()
-
         self.NN_model.to(self.PROCESSOR)
+
+        self.NN_model.eval()
 
         self.test_loader_list = []
         for i in range(len(test_sequence)):

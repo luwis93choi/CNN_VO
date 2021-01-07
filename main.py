@@ -137,7 +137,7 @@ elif args['mode'] == 'test':
 
         NN_model = Branched_CNN()
 
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
 
         if checkpoint != None:
             print('Load complete')

@@ -10,18 +10,19 @@ from matplotlib import pyplot as plt
 class Branched_CNN(nn.Module):
 
     # Stages of Convolutional Layer
-    def conv_layer(self, layer_num, in_channel, out_channel, kernel_size, stride, padding, dropout_rate, use_batchNorm=True, use_Activation=True):
+    def conv_layer(self, layer_num, in_channel, out_channel, kernel_size, stride, padding, dropout_rate=0.0, use_batchNorm=True, use_Activation=True):
 
         conv = nn.Sequential()
-        conv.add_module('conv'+layer_num, nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size, stride=stride, padding=padding, bias=False))
+        conv.add_module('conv_'+layer_num, nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size, stride=stride, padding=padding, bias=False))
 
         if use_Activation:
-            conv.add_module('LeakyReLU'+layer_num, nn.LeakyReLU(0.1))
+            conv.add_module('LeakyReLU_'+layer_num, nn.LeakyReLU(0.1))
 
         if use_batchNorm:
-            conv.add_module('batchNorm'+layer_num, nn.BatchNorm2d(out_channel))
+            conv.add_module('batchNorm_'+layer_num, nn.BatchNorm2d(out_channel))
 
-        conv.add_module('dropout'+layer_num, nn.Dropout(dropout_rate))
+        if dropout_rate > 0.0:
+            conv.add_module('dropout_'+layer_num, nn.Dropout(dropout_rate))
 
         return conv
 
@@ -36,19 +37,19 @@ class Branched_CNN(nn.Module):
         ###################################################################################################
 
         # Batch Normalization Preprocessing Layer
-        self.batch_norm0 = nn.BatchNorm2d(6)
+        # self.batch_norm0 = nn.BatchNorm2d(6)
 
         self.conv1 = self.conv_layer('1', 6, 6, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
         self.avgpool1 = nn.AvgPool2d(kernel_size=3)
         self.maxpool1 = nn.MaxPool2d(kernel_size=3, stride=1)
 
-        self.conv2 = self.conv_layer('1_1', 6, 30, kernel_size=(5, 5), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
+        self.conv2 = self.conv_layer('2', 6, 30, kernel_size=(5, 5), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
         self.maxpool2 = nn.MaxPool2d(kernel_size=3, stride=1)
 
-        self.conv3 = self.conv_layer('2', 30, 30, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
+        self.conv3 = self.conv_layer('3', 30, 30, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
         self.maxpool3 = nn.MaxPool2d(kernel_size=3, stride=1)
         
-        self.conv4 = self.conv_layer('2_1', 30, 150, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
+        self.conv4 = self.conv_layer('4', 30, 150, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), dropout_rate=0.5, use_batchNorm=False, use_Activation=True)
         
         self.fc_1 = nn.Linear(in_features = 205 * 56 * 150, out_features = 12)  # Fully Connected Layer 1
         self.fc_2 = nn.Linear(in_features = 12, out_features = 6)  # Fully Connected Layer 2
