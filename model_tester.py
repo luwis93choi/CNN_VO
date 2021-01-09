@@ -195,7 +195,7 @@ class tester():
                             plt.show(block=False)
 
                             ### Loss Computation ###
-                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
+                            self.loss = 6 * self.pose_loss(estimated_pose_vect[0].float(), prev_current_odom[0].float())
 
                             ### Accumulate total loss ###
                             loss_sum += float(self.loss.item())

@@ -53,10 +53,10 @@ if cuda_num is None:
 epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
-train_sequence = ['00', '01', '02', '05', '06', '08', '09']
+train_sequence = ['00', '01', '05', '06', '08', '09']
 #train_sequence = ['01']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
-test_sequence = ['01']
+test_sequence = ['05']
 
 normalize = transforms.Normalize(
     
@@ -67,18 +67,18 @@ normalize = transforms.Normalize(
     std=[1 / 255., 1 / 255., 1 / 255.]
 )
 
-preprocess = transforms.Compose([
-    transforms.Resize((384, 1280)),
-    transforms.CenterCrop((384, 1280)),
-    transforms.ToTensor(),
-    normalize
-])
-
 # preprocess = transforms.Compose([
 #     transforms.Resize((384, 1280)),
 #     transforms.CenterCrop((384, 1280)),
-#     transforms.ToTensor()
+#     transforms.ToTensor(),
+#     normalize
 # ])
+
+preprocess = transforms.Compose([
+    transforms.Resize((384, 1280)),
+    transforms.CenterCrop((384, 1280)),
+    transforms.ToTensor()
+])
 
 if args['mode'] == 'train':
 

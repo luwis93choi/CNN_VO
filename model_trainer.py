@@ -15,6 +15,8 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 import sys
+import os
+import pickle
 
 class trainer():
 
@@ -37,6 +39,8 @@ class trainer():
         self.model_path = model_path
 
         self.learning_rate = learning_rate
+
+        self.loader_preprocess_param = loader_preprocess_param
 
         self.train_epoch = train_epoch
         self.train_sequence = train_sequence
@@ -225,22 +229,29 @@ class trainer():
 
             self.NN_model.train(False)
 
+            if epoch == 0:
+                print('Creating save directory')
+                os.mkdir('./' + start_time)
+
             training_loss.append(loss_sum)
             print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
             print(training_loss)
 
-            torch.save(self.NN_model, './CNN_VO_' + start_time + '.pth')
+            with open('./' + start_time + '/CNN VO Training Loss ' + start_time + 'txt', 'wb') as loss_file:
+                pickle.dump(training_loss, loss_file)
+
+            torch.save(self.NN_model, './' + start_time + '/CNN_VO_' + start_time + '.pth')
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
-                        'loss' : self.loss}, './CNN_VO_state_dict_' + start_time + '.pth')
+                        'loss' : self.loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
 
             if self.plot_epoch == True:
                 plt.cla()
-                plt.figure(figsize=(20,8))
+                plt.figure(figsize=(30,20))
 
                 plt.xlabel('Training Length')
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
-                plt.title('CNN VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence))
-                plt.savefig(self.model_path + 'Training Results ' + start_time + '.png')
+                plt.title('CNN VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
