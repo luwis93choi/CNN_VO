@@ -1,9 +1,13 @@
-from NN01_Branched_CNN import Branched_CNN
+from NN01_CNN_VO import CNN_VO
+from NN02_CNN_Autoencoder import Auto_CNN_VO
 
 from dataloader import voDataLoader
 
 from model_trainer import trainer
 from model_tester import tester
+
+from trainer_autoencoder import trainer_autoencoder
+from tester_autoencoder import tester_autoencoder
 
 import torch
 import torch.optim as optim
@@ -56,7 +60,7 @@ learning_rate = args['learning_rate']
 train_sequence = ['00', '01', '05', '06', '08', '09']
 #train_sequence = ['01']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
-test_sequence = ['05']
+test_sequence = ['00']
 
 normalize = transforms.Normalize(
     
@@ -68,15 +72,15 @@ normalize = transforms.Normalize(
 )
 
 # preprocess = transforms.Compose([
-#     transforms.Resize((384, 1280)),
-#     transforms.CenterCrop((384, 1280)),
+#     transforms.Resize((192, 640)),
+#     transforms.CenterCrop((192, 640)),
 #     transforms.ToTensor(),
 #     normalize
 # ])
 
 preprocess = transforms.Compose([
-    transforms.Resize((384, 1280)),
-    transforms.CenterCrop((384, 1280)),
+    transforms.Resize((192, 640)),
+    transforms.CenterCrop((192, 640)),
     transforms.ToTensor()
 ])
 
@@ -84,19 +88,35 @@ if args['mode'] == 'train':
 
     if model_type == '1':
 
-        print('Branched_CNN')
+        print('CNN-based VO')
 
-        NN_model = Branched_CNN()
+        NN_model = CNN_VO()
 
-    model_trainer = trainer(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
-                            loader_preprocess_param=preprocess,
-                            model_path=model_path,
-                            img_dataset_path=img_dataset_path,
-                            pose_dataset_path=pose_dataset_path,
-                            learning_rate=learning_rate,
-                            train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
-                            plot_epoch=True,
-                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+        model_trainer = trainer(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                loader_preprocess_param=preprocess,
+                                model_path=model_path,
+                                img_dataset_path=img_dataset_path,
+                                pose_dataset_path=pose_dataset_path,
+                                learning_rate=learning_rate,
+                                train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                plot_epoch=True,
+                                sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '2':
+
+        print('Convolutional Autoencoder-based VO')
+
+        NN_model = Auto_CNN_VO()
+
+        model_trainer = trainer_autoencoder(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                            loader_preprocess_param=preprocess,
+                                            model_path=model_path,
+                                            img_dataset_path=img_dataset_path,
+                                            pose_dataset_path=pose_dataset_path,
+                                            learning_rate=learning_rate,
+                                            train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                            plot_epoch=True,
+                                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     model_trainer.train()
 
@@ -106,7 +126,7 @@ elif args['mode'] == 'train_pretrained_model':
 
         print('Branched_CNN - Re-training')
 
-        NN_model = Branched_CNN()
+        NN_model = CNN_VO()
 
         checkpoint = torch.load(model_path)
 
@@ -133,9 +153,9 @@ elif args['mode'] == 'test':
 
     if model_type == '1':
 
-        print('Branched_CNN - Test')
+        print('CNN-based VO - Test')
 
-        NN_model = Branched_CNN()
+        NN_model = CNN_VO()
 
         checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
 
@@ -144,14 +164,38 @@ elif args['mode'] == 'test':
         else:
             sys.exit('[main ERROR] Invalid checkpoint loading')
 
-    model_tester = tester(NN_model=NN_model, checkpoint=checkpoint,
-                           model_path=model_path,
-                           use_cuda=True, cuda_num=cuda_num,
-                           loader_preprocess_param=preprocess,
-                           img_dataset_path=img_dataset_path, 
-                           pose_dataset_path=pose_dataset_path,
-                           test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
-                           plot_epoch=True,
-                           sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+        model_tester = tester(NN_model=NN_model, checkpoint=checkpoint,
+                            model_path=model_path,
+                            use_cuda=True, cuda_num=cuda_num,
+                            loader_preprocess_param=preprocess,
+                            img_dataset_path=img_dataset_path, 
+                            pose_dataset_path=pose_dataset_path,
+                            test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
+                            plot_epoch=True,
+                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
+
+    elif model_type == '2':
+
+        print('Convolutional Autoencoder-based VO - Test')
+
+        NN_model = Auto_CNN_VO()
+
+        checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_tester = tester_autoencoder(NN_model=NN_model, checkpoint=checkpoint,
+                                            model_path=model_path,
+                                            use_cuda=True, cuda_num=cuda_num,
+                                            loader_preprocess_param=preprocess,
+                                            img_dataset_path=img_dataset_path, 
+                                            pose_dataset_path=pose_dataset_path,
+                                            test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
+                                            plot_epoch=True,
+                                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+    
     model_tester.run_test()

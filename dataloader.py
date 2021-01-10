@@ -35,6 +35,8 @@ class voDataLoader(torch.utils.data.Dataset):
         self.pose_file = open(self.pose_dataset_path + '/' + self.sequence + '.txt', 'r')
         line = self.pose_file.readline()
         pose = line.strip().split()
+        self.pose_file.close()
+
         self.current_pose_T = np.array([float(pose[3]), float(pose[7]), float(pose[11])])
         self.current_pose_Rmat = np.array([[float(pose[0]), float(pose[1]), float(pose[2])], 
                                             [float(pose[4]), float(pose[5]), float(pose[6])], 
@@ -44,9 +46,11 @@ class voDataLoader(torch.utils.data.Dataset):
                                         0.0, 0.0, 0.0,
                                         0.0, 0.0, 0.0])
     
+        self.lines = []
         f = open(self.pose_dataset_path + '/' + self.sequence + '.txt', 'r')
         while True:
             line = f.readline()
+            self.lines.append(line)
             if not line: break
 
             self.len += 1
@@ -76,7 +80,7 @@ class voDataLoader(torch.utils.data.Dataset):
         self.prev_pose_Rmat = self.current_pose_Rmat
 
         # Load groundtruth at t
-        line = self.pose_file.readline()
+        line = self.lines[index]
         pose = line.strip().split()
         self.current_pose_T = np.array([float(pose[3]), float(pose[7]), float(pose[11])])
         self.current_pose_Rmat = np.array([[float(pose[0]), float(pose[1]), float(pose[2])], 

@@ -1,4 +1,4 @@
-from dataloader import voDataLoader
+from dataloader_for_autoencoder import voDataLoader
 
 from notifier import notifier_Outlook
 
@@ -18,7 +18,7 @@ import sys
 import os
 import pickle
 
-class trainer():
+class trainer_autoencoder():
 
     def __init__(self, NN_model=None, checkpoint=None,
                        use_cuda=True, cuda_num='',
@@ -84,9 +84,10 @@ class trainer():
                                                                                    transform=loader_preprocess_param,
                                                                                    sequence=train_sequence[i],
                                                                                    batch_size=self.train_batch),
-                                                                                   batch_size=self.train_batch, shuffle=False, drop_last=True))
+                                                                                   batch_size=self.train_batch, shuffle=True, drop_last=True))
 
         self.pose_loss = nn.MSELoss()
+        self.autoencoder_loss = nn.MSELoss()
 
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate)
 
@@ -112,12 +113,44 @@ class trainer():
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
 
+    def io_img_disp(self, prev_current_img, recovered_prev_current_img, disp_fig):
+
+        fig = disp_fig
+            
+        prev_img = np.transpose(prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, :3]
+        current_img = np.transpose(prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, 3:]
+        
+        recovered_prev_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, :3])*255).astype(np.uint8)
+        recovered_current_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, 3:])*255).astype(np.uint8)
+        
+        ax1 = fig.add_subplot(2, 2, 1)
+        ax1.title.set_text('Original Prev Image')
+        plt.imshow(prev_img)
+
+        ax2 = fig.add_subplot(2, 2, 2)
+        ax2.title.set_text('Original Current Image')
+        plt.imshow(current_img)
+        
+        ax3 = fig.add_subplot(2, 2, 3)
+        ax3.title.set_text('Recovered Prev Image')
+        plt.imshow(recovered_prev_img)
+
+        ax4 = fig.add_subplot(2, 2, 4)
+        ax4.title.set_text('Recovered Current Image')
+        plt.imshow(recovered_current_img)
+
+        plt.pause(0.001)
+        plt.show(block=False)
+        plt.clf()
+
     def train(self):
 
         start_time = str(datetime.datetime.now())
 
         training_loss = []
         valid_loss = []
+
+        io_img_fig = plt.figure(figsize=(10, 4))
 
         for epoch in range(self.train_epoch):
 
@@ -140,18 +173,13 @@ class trainer():
             for train_loader in self.train_loader_list:
 
                 print('-------')
-                for batch_idx, (sequence, prev_current_img, prev_current_odom) in enumerate(train_loader):
+                
+                for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(train_loader):
                     
-                    if batch_idx == 0:
+                    if data_idx == 0:
                         print('Index 0 Skip')
 
                     else:
-
-                        ### Input Image Display ###
-                        # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                        # plt.pause(0.001)
-                        # plt.show(block=False)
-                        # plt.clf()
 
                         ### Data GPU Transfer ###
                         if self.use_cuda == True:
@@ -159,37 +187,31 @@ class trainer():
                             prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                         ### Model Train ###
-                        estimated_pose_vect = self.NN_model(prev_current_img)
+                        recovered_prev_current_img, pose_est = self.NN_model(prev_current_img)
 
-                        self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
-
-                        ### Backpropagation & Parameter Update ###
-                        self.loss.backward()
-                        self.optimizer.step()
                         self.optimizer.zero_grad()
+                        loss = self.autoencoder_loss(recovered_prev_current_img, prev_current_img) + self.pose_loss(pose_est.float(), prev_current_odom.float())
+                        loss.backward()
+                        self.optimizer.step()
 
                         ### Accumulate total loss ###
-                        train_loss_sum += float(self.loss.item())
+                        train_loss_sum += float(loss.item())
 
-                        print('[Train Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), train_loss_sum))
+                        print('[Train Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, loss.item(), train_loss_sum))
+
+                        #self.io_img_disp(prev_current_img, recovered_prev_current_img, io_img_fig)
 
             self.NN_model.eval()
             with torch.no_grad():
                 for train_loader in self.train_loader_list:
 
                     print('-------')
-                    for batch_idx, (sequence, prev_current_img, prev_current_odom) in enumerate(train_loader):
+                    for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(train_loader):
                         
-                        if batch_idx == 0:
+                        if data_idx == 0:
                             print('Index 0 Skip')
 
                         else:
-
-                            ### Input Image Display ###
-                            # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                            # plt.pause(0.001)
-                            # plt.show(block=False)
-                            # plt.clf()
 
                             ### Data GPU Transfer ###
                             if self.use_cuda == True:
@@ -197,22 +219,27 @@ class trainer():
                                 prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                             ### Model Train ###
-                            estimated_pose_vect = self.NN_model(prev_current_img)
+                            recovered_prev_current_img, pose_est = self.NN_model(prev_current_img)
 
-                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
-
+                            loss = self.autoencoder_loss(recovered_prev_current_img, prev_current_img) + self.pose_loss(pose_est.float(), prev_current_odom.float())
+                        
                             ### Accumulate total loss ###
-                            valid_loss_sum += float(self.loss.item())
+                            valid_loss_sum += float(loss.item())
 
-                            print('[Valid Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), valid_loss_sum))
-        
+                            print('[Valid Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, loss.item(), valid_loss_sum))
+                            
+                            #self.io_img_disp(prev_current_img, recovered_prev_current_img, io_img_fig)
+
             after_epoch = time.time()
-
-            self.NN_model.train()
 
             if epoch == 0:
                 print('Creating save directory')
                 os.mkdir('./' + start_time)
+
+            training_loss.append(train_loss_sum)
+            valid_loss.append(valid_loss_sum)
+            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
+            print(training_loss)
 
             with open('./' + start_time + '/CNN VO Training Loss ' + start_time + '.txt', 'wb') as loss_file:
                 pickle.dump(training_loss, loss_file)
@@ -221,15 +248,8 @@ class trainer():
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
-                        'loss' : self.loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
-
-            training_loss.append(train_loss_sum)
-            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
-            print(training_loss)
-
-            valid_loss.append(valid_loss_sum)
-            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
-            print(valid_loss)
+                        'pose_loss' : self.pose_loss,
+                        'autoencoder_loss' : self.autoencoder_loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
 
             if self.plot_epoch == True:
                 plt.cla()
