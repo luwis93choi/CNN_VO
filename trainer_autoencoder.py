@@ -84,9 +84,9 @@ class trainer_autoencoder():
                                                                                    transform=loader_preprocess_param,
                                                                                    sequence=train_sequence[i],
                                                                                    batch_size=self.train_batch),
-                                                                                   batch_size=self.train_batch, shuffle=True, drop_last=True))
+                                                                                   batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True))
 
-        self.pose_loss = nn.MSELoss()
+        self.pose_loss = nn.MSELoss(reduction='sum')
         self.autoencoder_loss = nn.MSELoss()
 
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate)

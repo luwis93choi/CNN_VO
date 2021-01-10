@@ -98,12 +98,12 @@ class tester():
                                                                                    transform=loader_preprocess_param,
                                                                                    sequence=test_sequence[i],
                                                                                    batch_size=self.test_batch),
-                                                                                   batch_size=self.test_batch, shuffle=False, drop_last=True))
+                                                                                   batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
 
         self.translation_loss = nn.MSELoss()
         self.angular_loss = nn.MSELoss()
 
-        self.pose_loss = nn.MSELoss()
+        self.pose_loss = nn.MSELoss(reduction='sum')
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -146,12 +146,10 @@ class tester():
                 for test_loader in self.test_loader_list:
 
                     print('-------')
-                    for batch_idx, (sequence, prev_current_img, prev_current_odom) in enumerate(test_loader):
-                            
-                        if batch_idx == 0:
-                            print('Index 0 Skip')
+                    for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(test_loader):
+                           
+                        if data_idx >= 2:
 
-                        else:
                             ### Input Image Display ###
                             # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
                             # plt.pause(0.001)
@@ -165,14 +163,13 @@ class tester():
 
                             ### Model Prediction ###
                             estimated_pose_vect = self.NN_model(prev_current_img)
-                            
-                            predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0]
-                            predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][1]
-                            predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][2]
+                    
+                            print(estimated_pose_vect)
+                            print(prev_current_odom)
 
-                            predicted_roll = estimated_pose_vect.clone().detach().cpu().numpy()[0][3]
-                            predicted_pitch = estimated_pose_vect.clone().detach().cpu().numpy()[0][4]
-                            predicted_yaw = estimated_pose_vect.clone().detach().cpu().numpy()[0][5]
+                            predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][0]
+                            predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][1]
+                            predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][2]
 
                             ### VO Estimation Plotting ##
                             estimated_x = estimated_x + predicted_dx
@@ -182,9 +179,9 @@ class tester():
 
                             ### Groundtruth Plotting ###
                             GT = prev_current_odom.clone().detach().cpu().numpy()
-                            GT_prev_current_x = GT[0][0]
-                            GT_prev_current_y = GT[0][1]
-                            GT_prev_current_z = GT[0][2]
+                            GT_prev_current_x = GT[0][0][0]
+                            GT_prev_current_y = GT[0][0][1]
+                            GT_prev_current_z = GT[0][0][2]
 
                             GT_x = GT_x + GT_prev_current_x
                             GT_y = GT_y + GT_prev_current_y
@@ -195,12 +192,16 @@ class tester():
                             plt.show(block=False)
 
                             ### Loss Computation ###
-                            self.loss = self.pose_loss(estimated_pose_vect[0].float(), prev_current_odom[0].float())
+                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
 
                             ### Accumulate total loss ###
                             loss_sum += float(self.loss.item())
 
-                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {} / Total Loss : {}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+
+                        else:
+
+                            print('Index 0, 1 Skip')
 
                 after_epoch = time.time()
 

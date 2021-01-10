@@ -1,4 +1,4 @@
-from dataloader import voDataLoader
+from dataloader_6DOF import voDataLoader
 
 from notifier import notifier_Outlook
 
@@ -18,7 +18,7 @@ import sys
 import os
 import pickle
 
-class trainer():
+class trainer_6DOF():
 
     def __init__(self, NN_model=None, checkpoint=None,
                        use_cuda=True, cuda_num='',

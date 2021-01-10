@@ -8,11 +8,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 
-class CNN_VO(nn.Module):
+class CNN_VO_6DOF(nn.Module):
 
     # Overriding base class of neural network (nn.Module)
     def __init__(self):
-        super(CNN_VO, self).__init__()
+        super(CNN_VO_6DOF, self).__init__()
 
         self.use_cuda = False
 
@@ -35,7 +35,7 @@ class CNN_VO(nn.Module):
         self.conv4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
         self.leakyrelu4 = nn.LeakyReLU(0.1)
 
-        self.fc_1 = nn.Linear(in_features = 512 * 5 * 24, out_features = 3)  # Fully Connected Layer 1
+        self.fc_1 = nn.Linear(in_features = 512 * 5 * 24, out_features = 6)  # Fully Connected Layer 1
 
     # CNN Layer Result Display Function - Display 2D Convolution Results by Channels
     def layer_disp(self, conv_result_x):

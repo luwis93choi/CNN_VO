@@ -1,4 +1,4 @@
-from dataloader_for_autoencoder import voDataLoader
+from dataloader_6DOF import voDataLoader
 
 from notifier import notifier_Outlook
 
@@ -17,7 +17,7 @@ import math
 from matplotlib import pyplot as plt
 import sys
 
-class tester_autoencoder():
+class tester_6DOF():
 
     def __init__(self, NN_model=None, checkpoint=None,
                        model_path='./',
@@ -98,10 +98,12 @@ class tester_autoencoder():
                                                                                    transform=loader_preprocess_param,
                                                                                    sequence=test_sequence[i],
                                                                                    batch_size=self.test_batch),
-                                                                                   batch_size=self.test_batch, shuffle=False, drop_last=True))
+                                                                                   batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
 
-        self.pose_loss = nn.MSELoss()
-        self.autoencoder_loss = nn.MSELoss()
+        self.translation_loss = nn.MSELoss()
+        self.angular_loss = nn.MSELoss()
+
+        self.pose_loss = nn.MSELoss(reduction='sum')
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -137,7 +139,7 @@ class tester_autoencoder():
                 
                 print('[EPOCH] : {}'.format(epoch))
 
-                test_loss_sum = 0.0
+                loss_sum = 0.0
 
                 before_epoch = time.time()
 
@@ -145,11 +147,9 @@ class tester_autoencoder():
 
                     print('-------')
                     for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(test_loader):
-                            
-                        if data_idx == 0:
-                            print('Index 0 Skip')
+                           
+                        if data_idx >= 2:
 
-                        else:
                             ### Input Image Display ###
                             # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
                             # plt.pause(0.001)
@@ -161,51 +161,21 @@ class tester_autoencoder():
                                 prev_current_img = prev_current_img.to(self.PROCESSOR)
                                 prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
-                            ### Model Train ###
-                            recovered_prev_current_img, pose_est = self.NN_model(prev_current_img)
-
-                            print(pose_est)
+                            ### Model Prediction ###
+                            estimated_pose_vect = self.NN_model(prev_current_img)
+                    
+                            print(estimated_pose_vect)
                             print(prev_current_odom)
 
-                            prev_img = np.transpose(prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, :3]
-                            current_img = np.transpose(prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, 3:]
-                            
-                            recovered_prev_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, :3])*255).astype(np.uint8)
-                            recovered_current_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, 3:])*255).astype(np.uint8)
-                            
-                            ax1 = fig.add_subplot(2, 2, 1)
-                            ax1.title.set_text('Original Prev Image')
-                            plt.imshow(prev_img)
-
-                            ax2 = fig.add_subplot(2, 2, 2)
-                            ax2.title.set_text('Original Current Image')
-                            plt.imshow(current_img)
-                            
-                            ax3 = fig.add_subplot(2, 2, 3)
-                            ax3.title.set_text('Recovered Prev Image')
-                            plt.imshow(recovered_prev_img)
-
-                            ax4 = fig.add_subplot(2, 2, 4)
-                            ax4.title.set_text('Recovered Current Image')
-                            plt.imshow(recovered_current_img)
-
-                            plt.pause(0.001)
-                            plt.show(block=False)
-                            plt.clf()
-                            
-                            predicted_dx = pose_est.clone().detach().cpu().numpy()[0][0][0]
-                            predicted_dy = pose_est.clone().detach().cpu().numpy()[0][0][1]
-                            predicted_dz = pose_est.clone().detach().cpu().numpy()[0][0][2]
-
-                            predicted_roll = pose_est.clone().detach().cpu().numpy()[0][0][3]
-                            predicted_pitch = pose_est.clone().detach().cpu().numpy()[0][0][4]
-                            predicted_yaw = pose_est.clone().detach().cpu().numpy()[0][0][5]
+                            predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][0]
+                            predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][1]
+                            predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][2]
 
                             ### VO Estimation Plotting ##
                             estimated_x = estimated_x + predicted_dx
                             estimated_z = estimated_z + predicted_dz
-                            
-                            #plt.plot(estimated_x, estimated_z, 'bo')
+
+                            plt.plot(estimated_x, estimated_z, 'bo')
 
                             ### Groundtruth Plotting ###
                             GT = prev_current_odom.clone().detach().cpu().numpy()
@@ -217,18 +187,31 @@ class tester_autoencoder():
                             GT_y = GT_y + GT_prev_current_y
                             GT_z = GT_z + GT_prev_current_z
 
-                            # plt.plot(GT_x, GT_z, 'ro')
-                            # plt.pause(0.001)
-                            # plt.show(block=False)
+                            plt.plot(GT_x, GT_z, 'ro')
+                            plt.pause(0.001)
+                            plt.show(block=False)
 
                             ### Loss Computation ###
-                            loss = self.autoencoder_loss(recovered_prev_current_img, prev_current_img) + self.pose_loss(pose_est.float(), prev_current_odom.float())
-                        
-                            ### Accumulate total loss ###
-                            test_loss_sum += float(loss.item())
+                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
 
-                            print('[Test Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(loss.item()), test_loss_sum))
+                            ### Accumulate total loss ###
+                            loss_sum += float(self.loss.item())
+
+                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+
+                        else:
+
+                            print('Index 0, 1 Skip')
 
                 after_epoch = time.time()
 
                 test_loss.append(loss_sum)
+
+                if self.plot_epoch == True:
+                    plt.clf()
+                    plt.figure(figsize=(20, 8))
+                    plt.plot(range(len(test_loss)), test_loss, 'bo-')
+                    plt.title('CNN VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.train_sequence))
+                    plt.xlabel('Test Length')
+                    plt.ylabel('Total Loss')
+                    plt.savefig(self.model_path + 'Test ' + start_time + '.png')

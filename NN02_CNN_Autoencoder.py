@@ -53,17 +53,19 @@ class Auto_CNN_VO(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 6))
         #self.fc = nn.Linear(in_features = 256 * 22 * 78, out_features = 6)
 
-        # for layer in self.children():
+    def reset_weights_Xavier(self):
+
+        for layer in self.children():
             
-        #     if type(layer) == nn.Conv2d:
-        #         print('Xavier Init : {}'.format(layer))
-        #         nn.init.xavier_uniform_(layer.weight)
-        #     elif type(layer) == nn.ConvTranspose2d:
-        #         print('Xavier Init : {}'.format(layer))
-        #         nn.init.xavier_uniform_(layer.weight)
-        #     elif type(layer) == nn.Linear:
-        #         print('Xavier Init : {}'.format(layer))
-        #         nn.init.xavier_uniform_(layer.weight)
+            if type(layer) == nn.Conv2d:
+                print('Xavier Init : {}'.format(layer))
+                nn.init.xavier_uniform_(layer.weight)
+            elif type(layer) == nn.ConvTranspose2d:
+                print('Xavier Init : {}'.format(layer))
+                nn.init.xavier_uniform_(layer.weight)
+            elif type(layer) == nn.Linear:
+                print('Xavier Init : {}'.format(layer))
+                nn.init.xavier_uniform_(layer.weight)
 
     # CNN Layer Result Display Function - Display 2D Convolution Results by Channels
     def layer_disp(self, conv_result_x):

@@ -1,5 +1,6 @@
 from NN01_CNN_VO import CNN_VO
 from NN02_CNN_Autoencoder import Auto_CNN_VO
+from NN03_CNN_VO_6DOF import CNN_VO_6DOF
 
 from dataloader import voDataLoader
 
@@ -8,6 +9,9 @@ from model_tester import tester
 
 from trainer_autoencoder import trainer_autoencoder
 from tester_autoencoder import tester_autoencoder
+
+from model_trainer_6DOF import trainer_6DOF
+from model_tester_6DOF import tester_6DOF
 
 import torch
 import torch.optim as optim
@@ -57,8 +61,9 @@ if cuda_num is None:
 epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
-train_sequence = ['00', '01', '05', '06', '08', '09']
+#train_sequence = ['00', '01', '05', '06', '08', '09']
 #train_sequence = ['01']
+train_sequence = ['00', '01', '02', '08', '09']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
 test_sequence = ['00']
 
@@ -118,6 +123,22 @@ if args['mode'] == 'train':
                                             plot_epoch=True,
                                             sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
+    elif model_type == '3':
+
+        print('CNN-based VO (6DOF)')
+
+        NN_model = CNN_VO_6DOF()
+
+        model_trainer = trainer_6DOF(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                    loader_preprocess_param=preprocess,
+                                    model_path=model_path,
+                                    img_dataset_path=img_dataset_path,
+                                    pose_dataset_path=pose_dataset_path,
+                                    learning_rate=learning_rate,
+                                    train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                    plot_epoch=True,
+                                    sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
     model_trainer.train()
 
 elif args['mode'] == 'train_pretrained_model':
@@ -174,7 +195,6 @@ elif args['mode'] == 'test':
                             plot_epoch=True,
                             sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
-
     elif model_type == '2':
 
         print('Convolutional Autoencoder-based VO - Test')
@@ -198,4 +218,28 @@ elif args['mode'] == 'test':
                                             plot_epoch=True,
                                             sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
     
+    elif model_type == '3':
+
+        print('CNN-based VO (6DOF) - Test')
+
+        NN_model = CNN_VO_6DOF()
+
+        checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_tester = tester_6DOF(NN_model=NN_model, checkpoint=checkpoint,
+                                    model_path=model_path,
+                                    use_cuda=True, cuda_num=cuda_num,
+                                    loader_preprocess_param=preprocess,
+                                    img_dataset_path=img_dataset_path, 
+                                    pose_dataset_path=pose_dataset_path,
+                                    test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
+                                    plot_epoch=True,
+                                    sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+
     model_tester.run_test()
