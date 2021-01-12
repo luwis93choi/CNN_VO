@@ -65,50 +65,59 @@ class trainer():
 
         print(str(self.PROCESSOR))
 
-        if NN_model == None:
-
-            sys.exit('No NN model is specified')
-
-        else:
-
-            self.NN_model = NN_model
-            self.NN_model.to(self.PROCESSOR)
-            self.model_path = './'
-
-        self.NN_model.train()
-
-        self.train_loader_list = []
-        for i in range(len(train_sequence)):
-            self.train_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
-                                                                                   pose_dataset_path=self.pose_dataset_path,
-                                                                                   transform=loader_preprocess_param,
-                                                                                   sequence=train_sequence[i],
-                                                                                   batch_size=self.train_batch),
-                                                                                   batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True))
-
         self.pose_loss = nn.MSELoss(reduction='sum')
         #self.pose_loss = nn.L1Loss()
-
-        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate)
-
-        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)))
-
+        
         ### Model reloading ###
         if checkpoint != None:
             print('Re-training')
 
             if NN_model == None:
 
-                sys.exit('[Tester ERROR] No NN model is specified')
+                sys.exit('[Trainer ERROR] No NN model is specified')
 
             else:
 
                 self.NN_model = NN_model
                 self.NN_model.load_state_dict(checkpoint['model_state_dict'])
-                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                self.epoch = checkpoint['epoch']
-                self.loss = checkpoint['loss']
+                self.NN_model.to(self.PROCESSOR)
+
+                # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                
+                # self.epoch = checkpoint['epoch']
+                
+                # self.loss = checkpoint['loss']
+                
                 self.model_path = './'
+
+                print('Pre-trained model loaded')
+        else: 
+
+            if NN_model == None:
+
+                sys.exit('No NN model is specified')
+
+            else:
+
+                self.NN_model = NN_model
+                self.NN_model.to(self.PROCESSOR)
+                self.model_path = './'
+
+
+        self.train_loader_list = []
+        for i in range(len(train_sequence)):
+            self.train_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
+                                                                                pose_dataset_path=self.pose_dataset_path,
+                                                                                transform=loader_preprocess_param,
+                                                                                sequence=train_sequence[i],
+                                                                                batch_size=self.train_batch),
+                                                                                batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True))
+
+        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate)
+
+        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)))
+
+        self.NN_model.train()
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)

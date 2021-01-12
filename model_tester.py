@@ -211,7 +211,7 @@ class tester():
                     plt.clf()
                     plt.figure(figsize=(20, 8))
                     plt.plot(range(len(test_loss)), test_loss, 'bo-')
-                    plt.title('CNN VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.train_sequence))
+                    plt.title('CNN VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.test_sequence))
                     plt.xlabel('Test Length')
                     plt.ylabel('Total Loss')
                     plt.savefig(self.model_path + 'Test ' + start_time + '.png')

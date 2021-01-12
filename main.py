@@ -61,9 +61,9 @@ if cuda_num is None:
 epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
-#train_sequence = ['00', '01', '05', '06', '08', '09']
+train_sequence = ['00', '01', '05', '06', '08', '09']
 #train_sequence = ['01']
-train_sequence = ['00', '01', '02', '08', '09']
+#train_sequence = ['00', '01', '02', '08', '09']
 #train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
 test_sequence = ['00']
 
@@ -145,7 +145,7 @@ elif args['mode'] == 'train_pretrained_model':
 
     if model_type == '1':
 
-        print('Branched_CNN - Re-training')
+        print('CNN-based VO - Re-training')
 
         NN_model = CNN_VO()
 
@@ -156,16 +156,62 @@ elif args['mode'] == 'train_pretrained_model':
         else:
             sys.exit('[main ERROR] Invalid checkpoint loading')
 
-    model_trainer = trainer(NN_model=NN_model, checkpoint=checkpoint,
-                             use_cuda=True, cuda_num=cuda_num,
-                             loader_preprocess_param=preprocess,
-                             model_path=model_path,
-                             img_dataset_path=img_dataset_path,
-                             pose_dataset_path=pose_dataset_path,
-                             learning_rate=learning_rate,
-                             train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
-                             plot_epoch=True,
-                             sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+        model_trainer = trainer(NN_model=NN_model, checkpoint=checkpoint,
+                                use_cuda=True, cuda_num=cuda_num,
+                                loader_preprocess_param=preprocess,
+                                model_path=model_path,
+                                img_dataset_path=img_dataset_path,
+                                pose_dataset_path=pose_dataset_path,
+                                learning_rate=learning_rate,
+                                train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                plot_epoch=True,
+                                sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '2':
+
+        print('Convolutional Autoencoder-based VO - Re-training')
+
+        NN_model = Auto_CNN_VO()
+
+        checkpoint = torch.load(model_path)
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_trainer = trainer_autoencoder(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                            loader_preprocess_param=preprocess,
+                                            model_path=model_path,
+                                            img_dataset_path=img_dataset_path,
+                                            pose_dataset_path=pose_dataset_path,
+                                            learning_rate=learning_rate,
+                                            train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                            plot_epoch=True,
+                                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '3':
+
+        print('CNN-based VO (6DOF) - Re-training')
+
+        NN_model = CNN_VO_6DOF()
+
+        checkpoint = torch.load(model_path)
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_trainer = trainer_6DOF(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                    loader_preprocess_param=preprocess,
+                                    model_path=model_path,
+                                    img_dataset_path=img_dataset_path,
+                                    pose_dataset_path=pose_dataset_path,
+                                    learning_rate=learning_rate,
+                                    train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                    plot_epoch=True,
+                                    sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     model_trainer.train()
 

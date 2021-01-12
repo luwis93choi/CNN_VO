@@ -98,7 +98,7 @@ class tester_autoencoder():
                                                                                    transform=loader_preprocess_param,
                                                                                    sequence=test_sequence[i],
                                                                                    batch_size=self.test_batch),
-                                                                                   batch_size=self.test_batch, shuffle=False, drop_last=True))
+                                                                                   batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
 
         self.pose_loss = nn.MSELoss()
         self.autoencoder_loss = nn.MSELoss()
@@ -173,25 +173,25 @@ class tester_autoencoder():
                             recovered_prev_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, :3])*255).astype(np.uint8)
                             recovered_current_img = ((np.transpose(recovered_prev_current_img.clone().detach().cpu().numpy()[0], (1, 2, 0))[:, :, 3:])*255).astype(np.uint8)
                             
-                            ax1 = fig.add_subplot(2, 2, 1)
-                            ax1.title.set_text('Original Prev Image')
-                            plt.imshow(prev_img)
+                            # ax1 = fig.add_subplot(2, 2, 1)
+                            # ax1.title.set_text('Original Prev Image')
+                            # plt.imshow(prev_img)
 
-                            ax2 = fig.add_subplot(2, 2, 2)
-                            ax2.title.set_text('Original Current Image')
-                            plt.imshow(current_img)
+                            # ax2 = fig.add_subplot(2, 2, 2)
+                            # ax2.title.set_text('Original Current Image')
+                            # plt.imshow(current_img)
                             
-                            ax3 = fig.add_subplot(2, 2, 3)
-                            ax3.title.set_text('Recovered Prev Image')
-                            plt.imshow(recovered_prev_img)
+                            # ax3 = fig.add_subplot(2, 2, 3)
+                            # ax3.title.set_text('Recovered Prev Image')
+                            # plt.imshow(recovered_prev_img)
 
-                            ax4 = fig.add_subplot(2, 2, 4)
-                            ax4.title.set_text('Recovered Current Image')
-                            plt.imshow(recovered_current_img)
+                            # ax4 = fig.add_subplot(2, 2, 4)
+                            # ax4.title.set_text('Recovered Current Image')
+                            # plt.imshow(recovered_current_img)
 
-                            plt.pause(0.001)
-                            plt.show(block=False)
-                            plt.clf()
+                            # plt.pause(0.001)
+                            # plt.show(block=False)
+                            # plt.clf()
                             
                             predicted_dx = pose_est.clone().detach().cpu().numpy()[0][0][0]
                             predicted_dy = pose_est.clone().detach().cpu().numpy()[0][0][1]
@@ -205,7 +205,7 @@ class tester_autoencoder():
                             estimated_x = estimated_x + predicted_dx
                             estimated_z = estimated_z + predicted_dz
                             
-                            #plt.plot(estimated_x, estimated_z, 'bo')
+                            plt.plot(estimated_x, estimated_z, 'bo')
 
                             ### Groundtruth Plotting ###
                             GT = prev_current_odom.clone().detach().cpu().numpy()
@@ -217,9 +217,9 @@ class tester_autoencoder():
                             GT_y = GT_y + GT_prev_current_y
                             GT_z = GT_z + GT_prev_current_z
 
-                            # plt.plot(GT_x, GT_z, 'ro')
-                            # plt.pause(0.001)
-                            # plt.show(block=False)
+                            plt.plot(GT_x, GT_z, 'ro')
+                            plt.pause(0.001)
+                            plt.show(block=False)
 
                             ### Loss Computation ###
                             loss = self.autoencoder_loss(recovered_prev_current_img, prev_current_img) + self.pose_loss(pose_est.float(), prev_current_odom.float())
