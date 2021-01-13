@@ -65,33 +65,33 @@ if cuda_num is None:
 epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
-train_sequence = ['00', '01', '05', '06', '08', '09']
+
+train_sequence = ['00', '02', '04', '05', '06', '10']
 #train_sequence = ['01']
-#train_sequence = ['00', '01', '02', '08', '09']
-#train_sequence=['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
-test_sequence = ['03']
+valid_sequence = ['03', '08']
+test_sequence = ['00']
 
 normalize = transforms.Normalize(
     
-    # mean=[0.19007764876619865, 0.15170388157131237, 0.10659445665650864],
-    # std=[0.2610784009469139, 0.25729316928935814, 0.25163823815039915]
+    mean=[0.19007764876619865, 0.15170388157131237, 0.10659445665650864],
+    std=[0.2610784009469139, 0.25729316928935814, 0.25163823815039915]
     
-    mean=[127. / 255., 127. / 255., 127. / 255.],
-    std=[1 / 255., 1 / 255., 1 / 255.]
+    # mean=[127. / 255., 127. / 255., 127. / 255.],
+    # std=[1 / 255., 1 / 255., 1 / 255.]
 )
-
-# preprocess = transforms.Compose([
-#     transforms.Resize((192, 640)),
-#     transforms.CenterCrop((192, 640)),
-#     transforms.ToTensor(),
-#     normalize
-# ])
 
 preprocess = transforms.Compose([
     transforms.Resize((192, 640)),
     transforms.CenterCrop((192, 640)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    normalize
 ])
+
+# preprocess = transforms.Compose([
+#     transforms.Resize((192, 640)),
+#     transforms.CenterCrop((192, 640)),
+#     transforms.ToTensor()
+# ])
 
 if args['mode'] == 'train':
 
@@ -156,7 +156,7 @@ if args['mode'] == 'train':
                                     pose_dataset_path=pose_dataset_path,
                                     learning_rate=learning_rate,
                                     train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
-                                    plot_epoch=True,
+                                    valid_sequence=valid_sequence, valid_batch=batch_size, plot_epoch=True,
                                     sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     model_trainer.train()
@@ -306,6 +306,29 @@ elif args['mode'] == 'test':
                                     test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
                                     plot_epoch=True,
                                     sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '4':
+
+        print('CNN-GRU based VO - Test')
+
+        NN_model = CNN_GRU()
+
+        checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_tester = tester_RNN(NN_model=NN_model, checkpoint=checkpoint,
+                                model_path=model_path,
+                                use_cuda=True, cuda_num=cuda_num,
+                                loader_preprocess_param=preprocess,
+                                img_dataset_path=img_dataset_path, 
+                                pose_dataset_path=pose_dataset_path,
+                                test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
+                                plot_epoch=True,
+                                sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
 
     model_tester.run_test()

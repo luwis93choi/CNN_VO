@@ -21,42 +21,42 @@ class CNN_GRU(nn.Module):
         ###################################################################################################
 
         self.conv1 = nn.Conv2d(in_channels=9, out_channels=64, kernel_size=(5, 5), stride=(2, 2), padding=(1, 1), bias=False)
-        self.batchnorm1 = nn.BatchNorm2d(64)
+        self.batchnorm1 = nn.BatchNorm2d(64, momentum=0.5)
         self.leakyrelu1 = nn.LeakyReLU(0.1)
         #self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.dropout1 = nn.Dropout(p=0.2)
 
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(5, 5), stride=(2, 2), padding=(1, 1), bias=False)
-        self.batchnorm2 = nn.BatchNorm2d(128)
+        self.batchnorm2 = nn.BatchNorm2d(128, momentum=0.5)
         self.leakyrelu2 = nn.LeakyReLU(0.1)
         #self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.dropout2 = nn.Dropout(p=0.2)
 
         self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5, 5), stride=(1, 1), padding=(1, 1), bias=False)
-        self.batchnorm2_1 = nn.BatchNorm2d(128)
+        self.batchnorm2_1 = nn.BatchNorm2d(128, momentum=0.5)
         self.leakyrelu2_1 = nn.LeakyReLU(0.1)
         #self.maxpool2_1 = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.dropout2_1 = nn.Dropout(p=0.2)
 
         self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
-        self.batchnorm3 = nn.BatchNorm2d(256)
+        self.batchnorm3 = nn.BatchNorm2d(256, momentum=0.5)
         self.leakyrelu3 = nn.LeakyReLU(0.1)
         #self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.dropout3 = nn.Dropout(p=0.2)
 
         self.conv3_1 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
-        self.batchnorm3_1 = nn.BatchNorm2d(256)
+        self.batchnorm3_1 = nn.BatchNorm2d(256, momentum=0.5)
         self.leakyrelu3_1 = nn.LeakyReLU(0.1)
         #self.maxpool3_1 = nn.MaxPool2d(kernel_size=2, stride=1)
         
         self.dropout3_1 = nn.Dropout(p=0.2)
 
         self.conv4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
-        self.batchnorm4 = nn.BatchNorm2d(512)
+        self.batchnorm4 = nn.BatchNorm2d(512, momentum=0.5)
         self.leakyrelu4 = nn.LeakyReLU(0.1)
 
         self.dropout4 = nn.Dropout(p=0.2)
@@ -90,7 +90,7 @@ class CNN_GRU(nn.Module):
 
     def init_hidden(self):
         
-        return torch.zeros([4, 1, 100], dtype=torch.float)
+        return torch.zeros([4, 1, 100], dtype=torch.float, requires_grad=True)
 
     # Foward pass of DeepVO NN
     def forward(self, x, hidden_in):

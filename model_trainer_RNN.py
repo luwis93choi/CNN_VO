@@ -122,10 +122,10 @@ class trainer_RNN():
                                                                                 batch_size=self.valid_batch),
                                                                                 batch_size=self.valid_batch, num_workers=16, shuffle=False, drop_last=True))
 
-        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.001)
+        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
 
-        hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
-        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)), hidden)
+        self.hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
+        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)), self.hidden)
 
         self.NN_model.train()
 
@@ -178,7 +178,7 @@ class trainer_RNN():
                         # print(prev_current_odom.size())
                         
                         ### Model Train ###
-                        estimated_pose_vect, hidden = self.NN_model(prev_current_img, hidden)
+                        estimated_pose_vect, self.hidden = self.NN_model(prev_current_img, self.hidden)
                         
                         # print('------------------')
                         # print(estimated_pose_vect.clone().detach())
@@ -205,7 +205,7 @@ class trainer_RNN():
                         
                         print('Index 0, 1 Skip')
 
-                        hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
+                        self.hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
                         print('GRU Hidden State Reset')
 
 
@@ -214,10 +214,10 @@ class trainer_RNN():
                 self.NN_model.eval()
                     
                 for layer in self.NN_model.modules():
-                    print(layer)
                     if isinstance(layer, nn.BatchNorm2d):
-                        print('Disable {}'.format(layer))
+                        print('-----------------------------')
                         layer.track_running_stats = False
+                        print('Disable {}'.format(layer))
                         print('layer.track_running_stats : {}'.format(layer.track_running_stats))
                 
                 for valid_loader in self.valid_loader_list:
@@ -240,7 +240,7 @@ class trainer_RNN():
                                 prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                             ### Model Train ###
-                            estimated_pose_vect, hidden = self.NN_model(prev_current_img, hidden)
+                            estimated_pose_vect, self.hidden = self.NN_model(prev_current_img, self.hidden)
 
                             self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
 
@@ -253,7 +253,7 @@ class trainer_RNN():
 
                             print('Index 0, 1 Skip')
 
-                            hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
+                            self.hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
                             print('GRU Hidden State Reset')
 
 
@@ -292,6 +292,15 @@ class trainer_RNN():
                 plt.xlabel('Training Length')
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
-                #plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
+                plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
                 plt.title('CNN-GRU VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
-                plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
+                plt.savefig('./' + start_time + '/Training vs Validation Results ' + start_time + '.png')
+
+                plt.cla()
+                plt.figure(figsize=(30,20))
+
+                plt.xlabel('Training Length')
+                plt.ylabel('Total Loss')
+                plt.plot(range(len(training_loss)), training_loss, 'bo-')
+                plt.title('CNN-GRU VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.savefig('./' + start_time + '/Training Loss-only Results ' + start_time + '.png')
