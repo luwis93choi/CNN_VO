@@ -110,22 +110,24 @@ class voDataLoader(torch.utils.data.Dataset):
             dyaw = current_yaw - prev_yaw
 
             # Compute translation difference between groundtruth at t-1 and t
-            dx = self.current_pose_T[0] - self.prev_pose_T[0]
-            dy = self.current_pose_T[1] - self.prev_pose_T[1]
-            dz = self.current_pose_T[2] - self.prev_pose_T[2]
+            # dx = self.current_pose_T[0] - self.prev_pose_T[0]
+            # dy = self.current_pose_T[1] - self.prev_pose_T[1]
+            # dz = self.current_pose_T[2] - self.prev_pose_T[2]
 
             #########################################################################
 
             # Stack the image as indicated in DeepVO paper
-            prev_current_stacked_img = np.asarray(np.concatenate([pprev_img, prev_img, current_img], axis=0))
+            #prev_current_stacked_img = np.asarray(np.concatenate([pprev_img, prev_img, current_img], axis=0))
+            prev_current_stacked_img = torch.Tensor.float(torch.from_numpy(np.concatenate([pprev_img, prev_img, current_img], axis=0)))
 
             # Prepare 6 DOF pose vector between t-1 and t (dX dY dZ dRoll dPitch dYaw)
-            prev_current_odom = np.asarray([[dx, dy, dz]])
+            #prev_current_odom = np.asarray([[dx, dy, dz]])
+            prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([self.current_pose_T - self.prev_pose_T])))
             
             return self.sequence, index, prev_current_stacked_img, prev_current_odom
             
         else:
-            print('Index 0, 1 Skip')
+            print('[Dataloader] Index 0, 1 Skip')
 
             return self.sequence, index, [], []   
 

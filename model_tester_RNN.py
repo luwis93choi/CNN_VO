@@ -81,8 +81,9 @@ class tester_RNN():
                                 #           : https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323
                                 #           : https://gldmg.tistory.com/124
                                 # In order to temporarily address this issue, the model stays on traning mode, but it does not update any type of gradients using optimizers.
-
+        
         self.NN_model.eval()
+        print(self.NN_model)
         # for layer in self.NN_model.children():
         #     print(layer)
         #     if type(layer) == nn.BatchNorm2d:
@@ -100,10 +101,7 @@ class tester_RNN():
                                                                                    batch_size=self.test_batch),
                                                                                    batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
 
-        self.translation_loss = nn.MSELoss()
-        self.angular_loss = nn.MSELoss()
-
-        self.pose_loss = nn.MSELoss(reduction='sum')
+        self.pose_loss = nn.MSELoss()
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -162,15 +160,16 @@ class tester_RNN():
                                 prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                             ### Model Prediction ###
-                            estimated_pose_vect = self.NN_model(prev_current_img)
-                    
-                            print(estimated_pose_vect)
-                            print(prev_current_odom)
+                            estimated_pose_vect, hidden = self.NN_model(prev_current_img, hidden)
+
+                            print('------------------')
+                            print(estimated_pose_vect.clone().detach().cpu().numpy())
+                            print(prev_current_odom.clone().detach().cpu().numpy())
 
                             predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][0]
                             predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][1]
                             predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][2]
-
+                            
                             ### VO Estimation Plotting ##
                             estimated_x = estimated_x + predicted_dx
                             estimated_z = estimated_z + predicted_dz
@@ -192,7 +191,7 @@ class tester_RNN():
                             plt.show(block=False)
 
                             ### Loss Computation ###
-                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
+                            self.loss = self.pose_loss(estimated_pose_vect, prev_current_odom)
 
                             ### Accumulate total loss ###
                             loss_sum += float(self.loss.item())
@@ -203,6 +202,9 @@ class tester_RNN():
 
                             print('Index 0, 1 Skip')
 
+                            hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
+                            print('GRU Hidden State Reset')
+
                 after_epoch = time.time()
 
                 test_loss.append(loss_sum)
@@ -211,7 +213,7 @@ class tester_RNN():
                     plt.clf()
                     plt.figure(figsize=(20, 8))
                     plt.plot(range(len(test_loss)), test_loss, 'bo-')
-                    plt.title('CNN VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.test_sequence))
+                    plt.title('CNN-GRU VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.test_sequence))
                     plt.xlabel('Test Length')
                     plt.ylabel('Total Loss')
                     plt.savefig(self.model_path + 'Test ' + start_time + '.png')
