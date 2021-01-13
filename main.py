@@ -69,7 +69,7 @@ learning_rate = args['learning_rate']
 train_sequence = ['00', '02', '04', '05', '06', '10']
 #train_sequence = ['01']
 valid_sequence = ['03', '08']
-test_sequence = ['00']
+test_sequence = ['01', '07', '09']
 
 normalize = transforms.Normalize(
     
@@ -80,18 +80,24 @@ normalize = transforms.Normalize(
     # std=[1 / 255., 1 / 255., 1 / 255.]
 )
 
-preprocess = transforms.Compose([
-    transforms.Resize((192, 640)),
-    transforms.CenterCrop((192, 640)),
-    transforms.ToTensor(),
-    normalize
-])
+# preprocess = transforms.Compose([
+#     transforms.Resize((192, 640)),
+#     transforms.CenterCrop((192, 640)),
+#     transforms.ToTensor(),
+#     normalize
+# ])
 
 # preprocess = transforms.Compose([
 #     transforms.Resize((192, 640)),
 #     transforms.CenterCrop((192, 640)),
 #     transforms.ToTensor()
 # ])
+
+preprocess = transforms.Compose([
+    transforms.Resize((384, 1280)),
+    transforms.CenterCrop((384, 1280)),
+    transforms.ToTensor()
+])
 
 if args['mode'] == 'train':
 

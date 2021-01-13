@@ -125,7 +125,7 @@ class trainer_RNN():
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
 
         self.hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
-        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)), self.hidden)
+        summary(self.NN_model, (torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)), self.hidden)
 
         self.NN_model.train()
 
@@ -151,7 +151,7 @@ class trainer_RNN():
             self.NN_model.train()
 
             # Shuffling training sequences
-            random.shuffle(self.train_loader_list)
+            #random.shuffle(self.train_loader_list)
             
             for train_loader in self.train_loader_list:
 
@@ -193,13 +193,13 @@ class trainer_RNN():
                         ### Accumulate total loss ###
                         train_loss_sum += float(self.loss.item())
 
-                        print('[Train Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), train_loss_sum))
+                        print('[Train Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4f} / Total Loss : {:.4f}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), train_loss_sum))
 
-                        # if (data_idx % 10) == 0:
+                        # if (data_idx % 5) == 0:
                             
                         #     hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
 
-                        #     print('Hidden Reset by 100th Sequence')
+                        #     print('Hidden Reset')
 
                     else:
                         
@@ -247,7 +247,7 @@ class trainer_RNN():
                             ### Accumulate total loss ###
                             valid_loss_sum += float(self.loss.item())
 
-                            print('[Valid Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(valid_loader), batch_idx, self.loss.item(), valid_loss_sum))
+                            print('[Valid Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4f} / Total Loss : {:.4f}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(valid_loader), batch_idx, self.loss.item(), valid_loss_sum))
             
                         else:
 
