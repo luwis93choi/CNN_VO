@@ -7,6 +7,7 @@ import datetime
 
 from PIL import Image   # Load images from the dataset
 
+import torch
 import torch.utils.data
 import torchvision.transforms as tranforms
 from matplotlib import pyplot as plt
@@ -21,6 +22,8 @@ class voDataLoader(torch.utils.data.Dataset):
         self.pose_dataset_path = pose_dataset_path
 
         self.sequence = sequence
+
+        self.data_idx = 0
 
         self.batch_size = batch_size
 
@@ -63,7 +66,10 @@ class voDataLoader(torch.utils.data.Dataset):
     # Dataset Load Function
     def __getitem__(self, index):
 
-        if index >= 2:
+        index += 1
+
+        if index >= 1:
+            
             ### Dataset Image Preparation ###
             # Load Image at t-1 and t
             base_path = self.img_dataset_path + '/' + self.sequence + '/image_2'
@@ -117,21 +123,25 @@ class voDataLoader(torch.utils.data.Dataset):
             #########################################################################
 
             # Stack the image as indicated in DeepVO paper
-            #prev_current_stacked_img = np.asarray(np.concatenate([pprev_img, prev_img, current_img], axis=0))
-            prev_current_stacked_img = torch.Tensor.float(torch.from_numpy(np.concatenate([prev_img, current_img], axis=0)))
+            prev_current_stacked_img = np.asarray(np.concatenate([prev_img, current_img], axis=0))
+            #prev_current_stacked_img = torch.Tensor.float(torch.from_numpy(np.concatenate([prev_img, current_img], axis=0)))
 
             # Prepare 6 DOF pose vector between t-1 and t (dX dY dZ dRoll dPitch dYaw)
-            #prev_current_odom = np.asarray([[dx, dy, dz]])
+            prev_current_odom = np.asarray([[dx, dy, dz, droll, dpitch, dyaw]])
             #prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([self.current_pose_T - self.prev_pose_T])))
-            prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([[dx, dy, dz, droll, dpitch, dyaw]])))
+            #prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([[dx, dy, dz, droll, dpitch, dyaw]])))
             
-            return self.sequence, index, prev_current_stacked_img, prev_current_odom
+            #print(prev_current_stacked_img.shape)
+            #print(prev_current_odom.shape)
+
+            return prev_current_stacked_img, prev_current_odom
             
         else:
+
             print('[Dataloader] Index 0, 1 Skip')
 
-            return self.sequence, index, [], []   
+            return [], []
 
     def __len__(self):
 
-        return self.len
+        return self.len-1

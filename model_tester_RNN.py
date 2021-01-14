@@ -75,15 +75,8 @@ class tester_RNN():
 
         self.NN_model.to(self.PROCESSOR)
 
-        #self.NN_model.train()   # For unknown reason, switching to evaluation mode greatly degrades the performance of the model.
-                                # Also, it seems that evaluation mode does not turn off batch normalizatio in the model. (track_running_stats stays True even after eval())
-                                # Reference : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
-                                #           : https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323
-                                #           : https://gldmg.tistory.com/124
-                                # In order to temporarily address this issue, the model stays on traning mode, but it does not update any type of gradients using optimizers.
-        
         self.NN_model.eval()
-        print(self.NN_model)
+        #print(self.NN_model)
         # for layer in self.NN_model.children():
         #     print(layer)
         #     if type(layer) == nn.BatchNorm2d:
@@ -101,7 +94,9 @@ class tester_RNN():
                                                                                    batch_size=self.test_batch),
                                                                                    batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
 
-        self.pose_loss = nn.MSELoss()
+        
+        self.translation_loss = nn.MSELoss()
+        self.rotation_loss = nn.MSELoss()
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -138,14 +133,18 @@ class tester_RNN():
                 print('[EPOCH] : {}'.format(epoch))
 
                 loss_sum = 0.0
+                test_length = 0
 
                 before_epoch = time.time()
 
                 for test_loader in self.test_loader_list:
 
                     print('-------')
-                    for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(test_loader):
+                    data_idx = 0
+                    for batch_idx, (prev_current_img, prev_current_odom) in enumerate(test_loader):
                            
+                        sequence = test_loader.dataset.sequence
+
                         if data_idx >= 2:
 
                             ### Input Image Display ###
@@ -191,12 +190,15 @@ class tester_RNN():
                             plt.show(block=False)
 
                             ### Loss Computation ###
-                            self.loss = self.pose_loss(estimated_pose_vect, prev_current_odom)
-
+                            self.loss = self.translation_loss(estimated_pose_vect.float()[:, :, :3], prev_current_odom.float()[:, :, :3]) + 100 * self.rotation_loss(estimated_pose_vect.float()[:, :, 3:], prev_current_odom.float()[:, :, 3:])
+                        
                             ### Accumulate total loss ###
                             loss_sum += float(self.loss.item())
+                            test_length += 1
 
-                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Avg Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum/test_length))
+
+                            data_idx += 1
 
                         else:
 
@@ -204,6 +206,8 @@ class tester_RNN():
 
                             hidden = (self.NN_model.init_hidden()).to(self.PROCESSOR)
                             print('GRU Hidden State Reset')
+
+                            data_idx += 1
 
                 after_epoch = time.time()
 
