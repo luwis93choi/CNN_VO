@@ -66,10 +66,11 @@ epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
 
-train_sequence = ['00', '02', '04', '05', '06', '10']
+train_sequence = ['00', '02', '04', '06', '10']
 #train_sequence = ['01']
-valid_sequence = ['03', '08']
-test_sequence = ['01', '07', '09']
+valid_sequence = ['05', '08']
+#test_sequence = ['01', '03', '07', '09']
+test_sequence = ['04']
 
 normalize = transforms.Normalize(
     
