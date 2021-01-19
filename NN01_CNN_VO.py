@@ -62,6 +62,12 @@ class CNN_VO(nn.Module):
         self.fc_3 = nn.Linear(in_features = 50, out_features = 6)  # Fully Connected Layer 3
         self.dropout3 = nn.Dropout(p=0.5)
 
+        ### Weight Initialization ###
+        # Fully Connected Layer weight init
+        torch.nn.init.xavier_uniform_(self.fc_1.weight)
+        torch.nn.init.xavier_uniform_(self.fc_2.weight)
+        torch.nn.init.xavier_uniform_(self.fc_3.weight)
+
     # CNN Layer Result Display Function - Display 2D Convolution Results by Channels
     def layer_disp(self, conv_result_x, window_name, col_num, resize_ratio=0.8, invert=False):
 
