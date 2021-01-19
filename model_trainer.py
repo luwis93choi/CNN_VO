@@ -1,4 +1,4 @@
-from dataloader import voDataLoader
+from dataloader_v2 import KITTI_Dataset
 
 from notifier import notifier_Outlook
 
@@ -27,7 +27,7 @@ class trainer():
                        img_dataset_path='', pose_dataset_path='',
                        learning_rate=0.001,
                        train_epoch=1, train_sequence=[], train_batch=1,
-                       valid_sequence=[],
+                       valid_sequence=[], valid_batch=1,
                        plot_epoch=True,
                        sender_email='', sender_email_pw='', receiver_email=''):
 
@@ -103,19 +103,28 @@ class trainer():
                 self.NN_model.to(self.PROCESSOR)
                 self.model_path = './'
 
+        Train_KITTI_Dataset = KITTI_Dataset(name='KITTI_Train',
+                                            img_dataset_path=self.img_dataset_path,
+                                            pose_dataset_path=self.pose_dataset_path,
+                                            transform=loader_preprocess_param,
+                                            sequence=train_sequence, verbose=0)
 
-        self.train_loader_list = []
-        for i in range(len(train_sequence)):
-            self.train_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
-                                                                                pose_dataset_path=self.pose_dataset_path,
-                                                                                transform=loader_preprocess_param,
-                                                                                sequence=train_sequence[i],
-                                                                                batch_size=self.train_batch),
-                                                                                batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True))
+        Valid_KITTI_Dataset = KITTI_Dataset(name='KITTI_Valid',
+                                            img_dataset_path=self.img_dataset_path,
+                                            pose_dataset_path=self.pose_dataset_path,
+                                            transform=loader_preprocess_param,
+                                            sequence=valid_sequence, verbose=0)
 
-        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate)
+        self.train_loader = torch.utils.data.DataLoader(Train_KITTI_Dataset, batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True)
 
-        summary(self.NN_model, (torch.zeros((1, 9, 192, 640)).to(self.PROCESSOR)))
+        self.valid_loader = torch.utils.data.DataLoader(Valid_KITTI_Dataset, batch_size=self.valid_batch, num_workers=8, shuffle=True, drop_last=True)
+
+        self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
+
+        self.translation_loss = nn.MSELoss()
+        self.rotation_loss = nn.MSELoss()
+        
+        summary(self.NN_model, (torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
 
         self.NN_model.train()
 
@@ -142,86 +151,108 @@ class trainer():
             print('[EPOCH] : {}'.format(epoch))
 
             train_loss_sum = 0.0
+            train_T_loss_sum = 0.0
+            train_R_loss_sum = 0.0
+            train_length = 0
+
             valid_loss_sum = 0.0
+            valid_T_loss_sum = 0.0
+            valid_R_loss_sum = 0.0
+            valid_length = 0
 
             before_epoch = time.time()
 
             self.NN_model.train()
-            for train_loader in self.train_loader_list:
+            for batch_idx, (prev_current_img, prev_current_odom) in enumerate(self.train_loader):
 
-                print('-------')
-                for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(train_loader):
-                    
-                    if data_idx >= 2:
+                ### Data GPU Transfer ###
+                if self.use_cuda == True:
+                    prev_current_img = prev_current_img.to(self.PROCESSOR)
+                    prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
-                        ### Input Image Display ###
-                        # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                        # plt.pause(0.001)
-                        # plt.show(block=False)
-                        # plt.clf()
+                ### Model Train ###
+                estimated_pose_vect = self.NN_model(prev_current_img)
 
-                        ### Data GPU Transfer ###
-                        if self.use_cuda == True:
-                            prev_current_img = prev_current_img.to(self.PROCESSOR)
-                            prev_current_odom = prev_current_odom.to(self.PROCESSOR)
+                ### Backpropagation & Parameter Update ###
+                self.optimizer.zero_grad()
+                self.loss = self.translation_loss(estimated_pose_vect.float()[:, :, :3], prev_current_odom.float()[:, :, :3]) + 100 * self.rotation_loss(estimated_pose_vect.float()[:, :, 3:], prev_current_odom.float()[:, :, 3:])
+                self.loss.backward()
+                self.optimizer.step()
 
-                        # print(prev_current_img.size())
-                        # print(prev_current_odom.size())
+                ### Translation/Rotation Loss ###
+                T_loss = self.translation_loss(estimated_pose_vect.float()[:, :, :3], prev_current_odom.float()[:, :, :3]).item()
+                train_T_loss_sum += T_loss
 
-                        ### Model Train ###
-                        estimated_pose_vect = self.NN_model(prev_current_img)
+                R_loss = 100 * self.rotation_loss(estimated_pose_vect.float()[:, :, 3:], prev_current_odom.float()[:, :, 3:]).item()
+                train_R_loss_sum += R_loss
+                
+                ### Accumulate total loss ###
+                train_loss_sum += float(self.loss.item())
+                train_length += 1
 
-                        # ### Backpropagation & Parameter Update ###
-                        self.optimizer.zero_grad()
-                        self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
-                        self.loss.backward()
-                        self.optimizer.step()
+                updates = []
+                updates.append('\n')
+                updates.append('[Train Epoch {}/{}][Progress : {:.2%}] \n'.format(epoch, self.train_epoch, batch_idx/len(self.train_loader)))
+                updates.append('Batch Loss : {:.4f} / Translation Loss : {:.4f} / Rotation Loss : {:.4f} \n'.format(self.loss.item(), T_loss, R_loss))
+                updates.append('Average Loss : {:.4f} / Avg Translation Loss : {:.4f} / Avg Rotation Loss : {:.4f} \n'.format(train_loss_sum/train_length, train_T_loss_sum/train_length, train_R_loss_sum/train_length))
+                final_updates = ''.join(updates)
 
-                        ### Accumulate total loss ###
-                        train_loss_sum += float(self.loss.item())
+                sys.stdout.write(final_updates)
+                
+                if batch_idx < len(self.train_loader)-1:
+                    for line_num in range(len(updates)):
+                        sys.stdout.write("\x1b[1A\x1b[2K")
 
-                        print('[Train Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), train_loss_sum))
-
-                    else:
-
-                        print('Index 0, 1 Skip')
-            '''
-            self.NN_model.eval()
             with torch.no_grad():
-                for train_loader in self.train_loader_list:
 
-                    print('-------')
-                    for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(train_loader):
-                        
-                        if data_idx >= 2:
-
-                            ### Input Image Display ###
-                            # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                            # plt.pause(0.001)
-                            # plt.show(block=False)
-                            # plt.clf()
-
-                            ### Data GPU Transfer ###
-                            if self.use_cuda == True:
-                                prev_current_img = prev_current_img.to(self.PROCESSOR)
-                                prev_current_odom = prev_current_odom.to(self.PROCESSOR)
-
-                            ### Model Train ###
-                            estimated_pose_vect = self.NN_model(prev_current_img)
-
-                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
-
-                            ### Accumulate total loss ###
-                            valid_loss_sum += float(self.loss.item())
-
-                            print('[Valid Epoch {}/{}][Sequence : {}][Progress : {:.2%}][Batch Idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.train_epoch ,sequence, batch_idx/len(train_loader), batch_idx, self.loss.item(), valid_loss_sum))
+                self.NN_model.eval()
+                    
+                for layer in self.NN_model.modules():
+                    if isinstance(layer, nn.BatchNorm2d):
+                        print('-----------------------------')
+                        layer.track_running_stats = False
+                        print('Disable {}'.format(layer))
+                        print('layer.track_running_stats : {}'.format(layer.track_running_stats))
             
-                        else:
+                for batch_idx, (prev_current_img, prev_current_odom) in enumerate(self.valid_loader):
+                    
+                    ### Data GPU Transfer ###
+                    if self.use_cuda == True:
+                        prev_current_img = prev_current_img.to(self.PROCESSOR)
+                        prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
-                            print('Index 0, 1 Skip')
-            '''
+                    ### Model Train ###
+                    estimated_pose_vect = self.NN_model(prev_current_img)
+
+                    self.loss = self.translation_loss(estimated_pose_vect.float()[:, :, :3], prev_current_odom.float()[:, :, :3]) + 100 * self.rotation_loss(estimated_pose_vect.float()[:, :, 3:], prev_current_odom.float()[:, :, 3:])
+                
+                    ### Translation/Rotation Loss ###
+                    T_loss = self.translation_loss(estimated_pose_vect.float()[:, :, :3], prev_current_odom.float()[:, :, :3]).item()
+                    valid_T_loss_sum += T_loss
+
+                    R_loss = 100 * self.rotation_loss(estimated_pose_vect.float()[:, :, 3:], prev_current_odom.float()[:, :, 3:]).item()
+                    valid_R_loss_sum += T_loss
+                    
+                    ### Accumulate total loss ###
+                    valid_loss_sum += float(self.loss.item())
+                    valid_length += 1
+
+                    updates = []
+                    updates.append('\n')
+                    updates.append('[Valid Epoch {}/{}][Progress : {:.2%}][Batch Idx : {}] \n'.format(epoch, self.train_epoch, batch_idx/len(self.valid_loader), batch_idx))
+                    updates.append('Batch Loss : {:.4f} / Translation Loss : {:.4f} / Rotation Loss : {:.4f} \n'.format(self.loss.item(), T_loss, R_loss))
+                    updates.append('Average Loss : {:.4f} / Avg Translation Loss : {:.4f} / Avg Rotation Loss : {:.4f} \n'.format(valid_loss_sum/valid_length, valid_T_loss_sum/valid_length, valid_R_loss_sum/valid_length))
+                    final_updates = ''.join(updates)
+
+                    sys.stdout.write(final_updates)
+
+                    if batch_idx < len(self.valid_loader)-1:
+                        for line_num in range(len(updates)):
+                            sys.stdout.write("\x1b[1A\x1b[2K")
 
             after_epoch = time.time()
+
+            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
 
             self.NN_model.train()
 
@@ -238,21 +269,27 @@ class trainer():
                         'optimizer_state_dict' : self.optimizer.state_dict(),
                         'loss' : self.loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
 
+            
             training_loss.append(train_loss_sum)
-            print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
             print(training_loss)
 
-            # valid_loss.append(valid_loss_sum)
-            # print('Epoch {} Complete | Time Taken : {:.2f} min'.format(epoch, (after_epoch-before_epoch)/60))
-            # print(valid_loss)
+            valid_loss.append(valid_loss_sum)
+            print(valid_loss)
 
             if self.plot_epoch == True:
                 plt.cla()
                 plt.figure(figsize=(30,20))
-
                 plt.xlabel('Training Length')
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
-                #plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
-                plt.title('CNN VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
+                plt.title('CNN VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
+
+                plt.cla()
+                plt.figure(figsize=(30,20))
+                plt.xlabel('Training Length')
+                plt.ylabel('Average Loss')
+                plt.plot(range(len(training_loss)), training_loss, 'bo-')
+                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.savefig('./' + start_time + '/Training Loss-only Results ' + start_time + '.png')
