@@ -207,13 +207,6 @@ class trainer():
 
                 self.NN_model.eval()
                     
-                for layer in self.NN_model.modules():
-                    if isinstance(layer, nn.BatchNorm2d):
-                        print('-----------------------------')
-                        layer.track_running_stats = False
-                        print('Disable {}'.format(layer))
-                        print('layer.track_running_stats : {}'.format(layer.track_running_stats))
-            
                 for batch_idx, (prev_current_img, prev_current_odom) in enumerate(self.valid_loader):
                     
                     ### Data GPU Transfer ###
@@ -259,22 +252,24 @@ class trainer():
             if epoch == 0:
                 print('Creating save directory')
                 os.mkdir('./' + start_time)
+            
+            training_loss.append(train_loss_sum/train_length)
+            print(training_loss)
 
-            with open('./' + start_time + '/CNN VO Training Loss ' + start_time + '.txt', 'wb') as loss_file:
+            valid_loss.append(valid_loss_sum/valid_length)
+            print(valid_loss)
+
+            with open('./' + start_time + '/CNN VO Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
                 pickle.dump(training_loss, loss_file)
+
+            with open('./' + start_time + '/CNN VO Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(valid_loss, loss_file)
 
             torch.save(self.NN_model, './' + start_time + '/CNN_VO_' + start_time + '.pth')
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
                         'loss' : self.loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
-
-            
-            training_loss.append(train_loss_sum)
-            print(training_loss)
-
-            valid_loss.append(valid_loss_sum)
-            print(valid_loss)
 
             if self.plot_epoch == True:
                 plt.cla()
@@ -283,7 +278,7 @@ class trainer():
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
                 plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
-                plt.title('CNN VO Training with KITTI [Total MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
 
                 plt.cla()

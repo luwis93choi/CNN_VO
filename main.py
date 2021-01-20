@@ -1,6 +1,4 @@
 from NN01_CNN_VO import CNN_VO
-from NN02_CNN_Autoencoder import Auto_CNN_VO
-from NN03_CNN_VO_6DOF import CNN_VO_6DOF
 from NN04_CNN_GRU_VO import CNN_GRU
 
 from dataloader import voDataLoader
@@ -68,8 +66,8 @@ learning_rate = args['learning_rate']
 
 train_sequence = ['00', '02', '04', '06', '10']
 #train_sequence = ['01']
-valid_sequence = ['05', '08']
-#test_sequence = ['01', '03', '07', '09']
+valid_sequence = ['01', '03', '05']
+#test_sequence = ['07', '08', '09']
 test_sequence = ['04']
 
 normalize = transforms.Normalize(
