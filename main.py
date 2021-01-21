@@ -64,11 +64,11 @@ epoch = args['epoch']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
 
-train_sequence = ['00', '02', '04', '06', '10']
+train_sequence = ['00', '01', '02', '06', '10']
 #train_sequence = ['01']
-valid_sequence = ['01', '03', '05']
+valid_sequence = ['04', '03', '05']
 #test_sequence = ['07', '08', '09']
-test_sequence = ['00']
+test_sequence = ['01']
 
 normalize = transforms.Normalize(
     
@@ -77,15 +77,17 @@ normalize = transforms.Normalize(
 )
 
 train_preprocess = transforms.Compose([
-    transforms.Resize((640, 192)),
-    transforms.CenterCrop((640, 192)),
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.5)], p=0.4),
+    transforms.Resize((192, 640)),
+    transforms.CenterCrop((192, 640)),
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0, saturation=0, hue=0)], p=0.5),
+    transforms.RandomApply([transforms.ColorJitter(brightness=0, contrast=0.5, saturation=0, hue=0)], p=0.5),
+    transforms.RandomApply([transforms.RandomAffine(degrees=0, scale=(1, 1.2))], p=0.5),
     transforms.ToTensor(),
 ])
 
 valid_preprocess = transforms.Compose([
-    transforms.Resize((640, 192)),
-    transforms.CenterCrop((640, 192)),
+    transforms.Resize((192, 640)),
+    transforms.CenterCrop((192, 640)),
     transforms.ToTensor(),
 ])
 
@@ -98,7 +100,8 @@ if args['mode'] == 'train':
         NN_model = CNN_VO()
 
         model_trainer = trainer(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
-                                loader_preprocess_param=train_preprocess,
+                                train_loader_preprocess_param=train_preprocess,
+                                valid_loader_preprocess_param=valid_preprocess,
                                 model_path=model_path,
                                 img_dataset_path=img_dataset_path,
                                 pose_dataset_path=pose_dataset_path,
