@@ -22,7 +22,8 @@ class trainer():
 
     def __init__(self, NN_model=None, checkpoint=None,
                        use_cuda=True, cuda_num='',
-                       loader_preprocess_param=transforms.Compose([]), 
+                       train_loader_preprocess_param=transforms.Compose([]), 
+                       valid_loader_preprocess_param=transforms.Compose([]),
                        model_path='./',
                        img_dataset_path='', pose_dataset_path='',
                        learning_rate=0.001,
@@ -40,7 +41,8 @@ class trainer():
 
         self.learning_rate = learning_rate
 
-        self.loader_preprocess_param = loader_preprocess_param
+        self.train_loader_preprocess_param = train_loader_preprocess_param
+        self.valid_loader_preprocess_param = valid_loader_preprocess_param
 
         self.train_epoch = train_epoch
         self.train_sequence = train_sequence
@@ -103,13 +105,13 @@ class trainer():
         Train_KITTI_Dataset = KITTI_Dataset(name='KITTI_Train',
                                             img_dataset_path=self.img_dataset_path,
                                             pose_dataset_path=self.pose_dataset_path,
-                                            transform=loader_preprocess_param,
+                                            transform=train_loader_preprocess_param,
                                             sequence=train_sequence, verbose=0)
 
         Valid_KITTI_Dataset = KITTI_Dataset(name='KITTI_Valid',
                                             img_dataset_path=self.img_dataset_path,
                                             pose_dataset_path=self.pose_dataset_path,
-                                            transform=loader_preprocess_param,
+                                            transform=valid_loader_preprocess_param,
                                             sequence=valid_sequence, verbose=0)
 
         self.train_loader = torch.utils.data.DataLoader(Train_KITTI_Dataset, batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True)
@@ -138,7 +140,7 @@ class trainer():
         training_loss = []
         valid_loss = []
 
-        plt.figure(figsize=(30,20))
+        plt.figure(figsize=(40,30))
 
         for epoch in range(self.train_epoch):
             
@@ -284,14 +286,14 @@ class trainer():
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
                 plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
-                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
 
                 plt.cla()
                 plt.xlabel('Training Length')
                 plt.ylabel('Average Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
-                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.loader_preprocess_param))
+                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Loss-only Results ' + start_time + '.png')
 
                 print('Epoch {} Complete | Model Saved \n'.format(epoch))
