@@ -130,7 +130,7 @@ class CNN_VO(nn.Module):
     # Foward pass of DeepVO NN
     def forward(self, x):
 
-        #self.layer_disp(x)
+        #self.layer_disp(x, window_name='Input Img', col_num=3)
         x = self.batch_norm0(x)
 
         x = self.conv1(x)
