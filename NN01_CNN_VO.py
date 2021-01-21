@@ -18,7 +18,9 @@ class CNN_VO(nn.Module):
 
         self.use_cuda = False
 
-        self.conv1 = nn.Conv2d(in_channels=6, out_channels=64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.batch_norm0 = nn.BatchNorm2d(6)
+
+        self.conv1 = nn.Conv2d(in_channels=6, out_channels=64, kernel_size=(11, 11), stride=(1, 1), padding=(5, 5), bias=False)
         self.batch_norm1 = nn.BatchNorm2d(64)
         self.leakyrelu1 = nn.LeakyReLU(0.1)
 
@@ -29,6 +31,7 @@ class CNN_VO(nn.Module):
         self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), bias=False)
         self.batch_norm2_1 = nn.BatchNorm2d(128)
         self.leakyrelu2_1 = nn.LeakyReLU(0.1)
+        
         self.maxpool2_1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
@@ -38,6 +41,8 @@ class CNN_VO(nn.Module):
         self.conv3_1 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
         self.batch_norm3_1 = nn.BatchNorm2d(256)
         self.leakyrelu3_1 = nn.LeakyReLU(0.1)
+        
+        self.maxpool3_1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.conv4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
         self.batch_norm4 = nn.BatchNorm2d(512)
@@ -47,26 +52,39 @@ class CNN_VO(nn.Module):
         self.batch_norm4_1 = nn.BatchNorm2d(512)
         self.leakyrelu4_1 = nn.LeakyReLU(0.1)
 
+        #self.maxpool4_1 = nn.MaxPool2d(kernel_size=2, stride=2)
+
         self.conv5 = nn.Conv2d(in_channels=512, out_channels=1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
         self.batch_norm5 = nn.BatchNorm2d(1024)
         self.leakyrelu5 = nn.LeakyReLU(0.1)
 
-        self.dropout0 = nn.Dropout(p=0.5)
+        #self.dropout0 = nn.Dropout(p=0.5)
 
-        self.fc_1 = nn.Linear(in_features = 1024 * 12 * 40, out_features = 100)  # Fully Connected Layer 1
+        self.fc_1 = nn.Linear(in_features = 1024 * 6 * 20, out_features = 100)  # Fully Connected Layer 1
+        #self.batch_norm_fc1 = nn.LayerNorm(100)
+        #self.leakyrelu_fc1 = nn.LeakyReLU(0.1)
         self.dropout1 = nn.Dropout(p=0.5)
 
         self.fc_2 = nn.Linear(in_features = 100, out_features = 50)  # Fully Connected Layer 2
+        #self.batch_norm_fc2 = nn.LayerNorm(50)
+        #self.leakyrelu_fc2 = nn.LeakyReLU(0.1)
         self.dropout2 = nn.Dropout(p=0.5)
 
-        self.fc_3 = nn.Linear(in_features = 50, out_features = 6)  # Fully Connected Layer 3
-        self.dropout3 = nn.Dropout(p=0.5)
+        self.fc_3 = nn.Linear(in_features = 50, out_features = 3)  # Fully Connected Layer 2
 
         ### Weight Initialization ###
         # Fully Connected Layer weight init
-        torch.nn.init.xavier_uniform_(self.fc_1.weight)
-        torch.nn.init.xavier_uniform_(self.fc_2.weight)
-        torch.nn.init.xavier_uniform_(self.fc_3.weight)
+        torch.nn.init.xavier_normal_(self.conv1.weight)
+        torch.nn.init.xavier_normal_(self.conv2.weight)
+        torch.nn.init.xavier_normal_(self.conv2_1.weight)
+        torch.nn.init.xavier_normal_(self.conv3.weight)
+        torch.nn.init.xavier_normal_(self.conv3_1.weight)
+        torch.nn.init.xavier_normal_(self.conv4.weight)
+        torch.nn.init.xavier_normal_(self.conv4_1.weight)
+        torch.nn.init.xavier_normal_(self.conv5.weight)
+        torch.nn.init.xavier_normal_(self.fc_1.weight)
+        torch.nn.init.xavier_normal_(self.fc_2.weight)
+        torch.nn.init.xavier_normal_(self.fc_3.weight)
 
     # CNN Layer Result Display Function - Display 2D Convolution Results by Channels
     def layer_disp(self, conv_result_x, window_name, col_num, resize_ratio=0.8, invert=False):
@@ -113,6 +131,8 @@ class CNN_VO(nn.Module):
     def forward(self, x):
 
         #self.layer_disp(x)
+        x = self.batch_norm0(x)
+
         x = self.conv1(x)
         x = self.batch_norm1(x)
         x = self.leakyrelu1(x)
@@ -124,6 +144,7 @@ class CNN_VO(nn.Module):
         x = self.conv2_1(x)
         x = self.batch_norm2_1(x)
         x = self.leakyrelu2_1(x)
+        
         x = self.maxpool2_1(x)
 
         x = self.conv3(x)
@@ -134,6 +155,8 @@ class CNN_VO(nn.Module):
         x = self.batch_norm3_1(x)
         x = self.leakyrelu3_1(x)
 
+        x = self.maxpool3_1(x)
+
         x = self.conv4(x)
         x = self.batch_norm4(x)
         x = self.leakyrelu4(x)
@@ -142,24 +165,31 @@ class CNN_VO(nn.Module):
         x = self.batch_norm4_1(x)
         x = self.leakyrelu4_1(x)
 
+        #x = self.maxpool4_1(x)
+
         x = self.conv5(x)
         x = self.batch_norm5(x)
         x = self.leakyrelu5(x)
 
         #print(x.size())   # Print the size of CNN output in order connect it to Fully Connected Layer
         # Reshpae/Flatten the output of common CNN
-        x = x.view(x.size(0), 1, -1)
+        x = x.reshape(x.size(0), -1)
+
+        #x = self.dropout0(x)
 
         # Forward pass into Linear Regression for pose estimation
-        x = self.dropout0(x)
-
         x = self.fc_1(x)
+        #x = self.batch_norm_fc1(x)
+        #x = self.leakyrelu_fc1(x)
+        #x = self.tanh_fc1(x)
         x = self.dropout1(x)
 
         x = self.fc_2(x)
+        #x = self.batch_norm_fc2(x)
+        #x = self.leakyrelu_fc2(x)
+        #x = self.tanh_fc2(x)
         x = self.dropout2(x)
 
         x = self.fc_3(x)
-        x = self.dropout3(x)
 
         return x
