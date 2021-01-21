@@ -68,21 +68,25 @@ train_sequence = ['00', '02', '04', '06', '10']
 #train_sequence = ['01']
 valid_sequence = ['01', '03', '05']
 #test_sequence = ['07', '08', '09']
-test_sequence = ['04']
+test_sequence = ['00']
 
 normalize = transforms.Normalize(
     
     mean=[0.19007764876619865, 0.15170388157131237, 0.10659445665650864],
     std=[0.2610784009469139, 0.25729316928935814, 0.25163823815039915]
-    
-    # mean=[127. / 255., 127. / 255., 127. / 255.],
-    # std=[1 / 255., 1 / 255., 1 / 255.]
 )
 
-preprocess = transforms.Compose([
-    transforms.Resize((384, 1280)),
-    transforms.CenterCrop((384, 1280)),
-    transforms.ToTensor()
+train_preprocess = transforms.Compose([
+    transforms.Resize((640, 192)),
+    transforms.CenterCrop((640, 192)),
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.5)], p=0.4),
+    transforms.ToTensor(),
+])
+
+valid_preprocess = transforms.Compose([
+    transforms.Resize((640, 192)),
+    transforms.CenterCrop((640, 192)),
+    transforms.ToTensor(),
 ])
 
 if args['mode'] == 'train':
@@ -94,13 +98,13 @@ if args['mode'] == 'train':
         NN_model = CNN_VO()
 
         model_trainer = trainer(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
-                                loader_preprocess_param=preprocess,
+                                loader_preprocess_param=train_preprocess,
                                 model_path=model_path,
                                 img_dataset_path=img_dataset_path,
                                 pose_dataset_path=pose_dataset_path,
                                 learning_rate=learning_rate,
                                 train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
-                                valid_sequence=valid_sequence, valid_batch=batch_size, 
+                                valid_sequence=valid_sequence, valid_batch=1, 
                                 plot_epoch=True,
                                 sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
@@ -111,7 +115,7 @@ if args['mode'] == 'train':
         NN_model = CNN_GRU()
 
         model_trainer = trainer_RNN(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
-                                    loader_preprocess_param=preprocess,
+                                    loader_preprocess_param=train_preprocess,
                                     model_path=model_path,
                                     img_dataset_path=img_dataset_path,
                                     pose_dataset_path=pose_dataset_path,
@@ -130,7 +134,7 @@ elif args['mode'] == 'train_pretrained_model':
 
         NN_model = CNN_VO()
 
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, map_location='cuda:')
 
         if checkpoint != None:
             print('Load complete')
@@ -139,7 +143,7 @@ elif args['mode'] == 'train_pretrained_model':
 
         model_trainer = trainer(NN_model=NN_model, checkpoint=checkpoint,
                                 use_cuda=True, cuda_num=cuda_num,
-                                loader_preprocess_param=preprocess,
+                                loader_preprocess_param=train_preprocess,
                                 model_path=model_path,
                                 img_dataset_path=img_dataset_path,
                                 pose_dataset_path=pose_dataset_path,
@@ -159,7 +163,13 @@ elif args['mode'] == 'test':
 
         NN_model = CNN_VO()
 
-        checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+        if cuda_num is None:
+            cuda_num = ''
+            checkpoint = torch.load(model_path)
+        
+        else:
+            checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+            print('map_location : cuda:{}'.format(cuda_num))
 
         if checkpoint != None:
             print('Load complete')
@@ -169,7 +179,7 @@ elif args['mode'] == 'test':
         model_tester = tester(NN_model=NN_model, checkpoint=checkpoint,
                             model_path=model_path,
                             use_cuda=True, cuda_num=cuda_num,
-                            loader_preprocess_param=preprocess,
+                            loader_preprocess_param=valid_preprocess,
                             img_dataset_path=img_dataset_path, 
                             pose_dataset_path=pose_dataset_path,
                             test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
@@ -192,7 +202,7 @@ elif args['mode'] == 'test':
         model_tester = tester_RNN(NN_model=NN_model, checkpoint=checkpoint,
                                 model_path=model_path,
                                 use_cuda=True, cuda_num=cuda_num,
-                                loader_preprocess_param=preprocess,
+                                loader_preprocess_param=valid_preprocess,
                                 img_dataset_path=img_dataset_path, 
                                 pose_dataset_path=pose_dataset_path,
                                 test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
