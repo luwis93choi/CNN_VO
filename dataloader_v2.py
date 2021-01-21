@@ -38,7 +38,7 @@ class KITTI_Dataset(torch.utils.data.Dataset):
 
         self.verbose = verbose
 
-        self.dataset_dict = open('./' + self.name + '_datset_dict.csv', 'w', encoding='utf-8', newline='')
+        self.dataset_dict = open('./' + self.name + '_dataset_dict.csv', 'w', encoding='utf-8', newline='')
         self.dataset_writer = csv.writer(self.dataset_dict)
         
         header_list = ['current_index', 'current_img_path', 'prev_img_path', 'current_pose_x', 'current_pose_y', 'current_pose_z', 
@@ -104,7 +104,7 @@ class KITTI_Dataset(torch.utils.data.Dataset):
 
         self.dataset_dict.close()
 
-        self.dataset_dict = open('./' + self.name + '_datset_dict.csv', 'r', encoding='utf-8')
+        self.dataset_dict = open('./' + self.name + '_dataset_dict.csv', 'r', encoding='utf-8')
         self.data_list = []
         self.reader = csv.reader(self.dataset_dict)
         next(self.reader)
@@ -166,13 +166,11 @@ class KITTI_Dataset(torch.utils.data.Dataset):
 
         # Stack the image as indicated in DeepVO paper
         prev_current_stacked_img = np.asarray(np.concatenate([prev_img, current_img], axis=0))
-        #prev_current_stacked_img = torch.Tensor.float(torch.from_numpy(np.concatenate([prev_img, current_img], axis=0)))
-
+        
         # Prepare 6 DOF pose vector between t-1 and t (dX dY dZ dRoll dPitch dYaw)
-        prev_current_odom = np.asarray([[dx, dy, dz, droll, dpitch, dyaw]])
-        #prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([self.current_pose_T - self.prev_pose_T])))
-        #prev_current_odom = torch.Tensor.float(torch.from_numpy(np.asarray([[dx, dy, dz, droll, dpitch, dyaw]])))
-
+        #prev_current_odom = np.asarray([dx, dy, dz, droll, dpitch, dyaw])
+        prev_current_odom = np.asarray([dx, dy, dz])
+        
         return prev_current_stacked_img, prev_current_odom
 
     def __len__(self):
