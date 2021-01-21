@@ -1,4 +1,4 @@
-from dataloader import voDataLoader
+from dataloader_v2 import KITTI_Dataset
 
 from notifier import notifier_Outlook
 
@@ -16,6 +16,8 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 import sys
+import os
+import pickle
 
 class tester():
 
@@ -68,42 +70,27 @@ class tester():
 
             else:
 
-                self.NN_model = NN_model
+                self.NN_model.to(self.PROCESSOR)
                 self.NN_model.load_state_dict(checkpoint['model_state_dict'])
 
                 self.model_path = './'
 
-        self.NN_model.to(self.PROCESSOR)
-
-        #self.NN_model.train()   # For unknown reason, switching to evaluation mode greatly degrades the performance of the model.
-                                # Also, it seems that evaluation mode does not turn off batch normalizatio in the model. (track_running_stats stays True even after eval())
-                                # Reference : https://discuss.pytorch.org/t/bug-weird-behavior-between-evaluation-and-training-mode/13297/18
-                                #           : https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323
-                                #           : https://gldmg.tistory.com/124
-                                # In order to temporarily address this issue, the model stays on traning mode, but it does not update any type of gradients using optimizers.
+                print('Model state loaded')
 
         self.NN_model.eval()
-        # for layer in self.NN_model.children():
-        #     print(layer)
-        #     if type(layer) == nn.BatchNorm2d:
-        #         print(type(layer))
-        #         print('Disable BatchNorm')
-        #         layer.track_running_stats = True
 
+        Test_KITTI_Dataset = KITTI_Dataset(name='KITTI_Test',
+                                           img_dataset_path=self.img_dataset_path,
+                                           pose_dataset_path=self.pose_dataset_path,
+                                           transform=loader_preprocess_param,
+                                           sequence=test_sequence, verbose=0)
 
-        self.test_loader_list = []
-        for i in range(len(test_sequence)):
-            self.test_loader_list.append(torch.utils.data.DataLoader(voDataLoader(img_dataset_path=self.img_dataset_path,
-                                                                                   pose_dataset_path=self.pose_dataset_path,
-                                                                                   transform=loader_preprocess_param,
-                                                                                   sequence=test_sequence[i],
-                                                                                   batch_size=self.test_batch),
-                                                                                   batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True))
+        self.test_loader = torch.utils.data.DataLoader(Test_KITTI_Dataset, batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True)
 
         self.translation_loss = nn.MSELoss()
-        self.angular_loss = nn.MSELoss()
+        self.rotation_loss = nn.MSELoss()
 
-        self.pose_loss = nn.MSELoss(reduction='sum')
+        #summary(self.NN_model, (torch.zeros((1, 6, 384, 1280)).to(self.PROCESSOR)))
 
         # Prepare Email Notifier
         self.notifier = notifier_Outlook(sender_email=self.sender_email, sender_email_pw=self.sender_pw)
@@ -129,6 +116,11 @@ class tester():
                                    [0, 0, 1]])
         test_loss = []
 
+        test_loss_sum = 0.0
+        test_T_loss_sum = 0.0
+        test_R_loss_sum = 0.0
+        test_length = 0
+        
         fig = plt.figure(figsize=(20, 10))
         plt.grid(True)
 
@@ -137,81 +129,79 @@ class tester():
             # Prevent the model from updating gradients by adding 'torch.no_grad()' & not using optmizer steps
             with torch.no_grad():
                 
+                self.NN_model.eval()
+
                 print('[EPOCH] : {}'.format(epoch))
 
                 loss_sum = 0.0
 
                 before_epoch = time.time()
 
-                for test_loader in self.test_loader_list:
-
-                    print('-------')
-                    for batch_idx, (sequence, data_idx, prev_current_img, prev_current_odom) in enumerate(test_loader):
-                           
-                        if data_idx >= 2:
-
-                            ### Input Image Display ###
-                            # plt.imshow((prev_current_img.permute(0, 2, 3, 1)[0, :, :, :3].cpu().numpy()*255).astype(np.uint8))
-                            # plt.pause(0.001)
-                            # plt.show(block=False)
-                            # plt.clf()
-
-                            ### Data GPU Transfer ###
-                            if self.use_cuda == True:
-                                prev_current_img = prev_current_img.to(self.PROCESSOR)
-                                prev_current_odom = prev_current_odom.to(self.PROCESSOR)
-
-                            ### Model Prediction ###
-                            estimated_pose_vect = self.NN_model(prev_current_img)
+                for batch_idx, (prev_current_img, prev_current_odom) in enumerate(self.test_loader):
                     
-                            print(estimated_pose_vect)
-                            print(prev_current_odom)
 
-                            predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][0]
-                            predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][1]
-                            predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][0][2]
+                    ### Data GPU Transfer ###
+                    if self.use_cuda == True:
+                        prev_current_img = prev_current_img.to(self.PROCESSOR)
+                        prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
-                            ### VO Estimation Plotting ##
-                            estimated_x = estimated_x + predicted_dx
-                            estimated_z = estimated_z + predicted_dz
+                    ### Model Prediction ###
+                    estimated_pose_vect = self.NN_model(prev_current_img)
+            
+                    print('----------------------------------------------------------------------')
+                    print(estimated_pose_vect)
+                    print(prev_current_odom)
 
-                            plt.plot(estimated_x, estimated_z, 'bo')
+                    predicted_dx = estimated_pose_vect.clone().detach().cpu().numpy()[0][0]
+                    predicted_dy = estimated_pose_vect.clone().detach().cpu().numpy()[0][1]
+                    predicted_dz = estimated_pose_vect.clone().detach().cpu().numpy()[0][2]
 
-                            ### Groundtruth Plotting ###
-                            GT = prev_current_odom.clone().detach().cpu().numpy()
-                            GT_prev_current_x = GT[0][0][0]
-                            GT_prev_current_y = GT[0][0][1]
-                            GT_prev_current_z = GT[0][0][2]
+                    ### VO Estimation Plotting ##
+                    estimated_x = estimated_x + predicted_dx
+                    estimated_z = estimated_z + predicted_dz
 
-                            GT_x = GT_x + GT_prev_current_x
-                            GT_y = GT_y + GT_prev_current_y
-                            GT_z = GT_z + GT_prev_current_z
+                    plt.plot(estimated_x, estimated_z, 'bo')
 
-                            plt.plot(GT_x, GT_z, 'ro')
-                            plt.pause(0.001)
-                            plt.show(block=False)
+                    ### Groundtruth Plotting ###
+                    GT = prev_current_odom.clone().detach().cpu().numpy()
+                    GT_prev_current_x = GT[0][0]
+                    GT_prev_current_y = GT[0][1]
+                    GT_prev_current_z = GT[0][2]
 
-                            ### Loss Computation ###
-                            self.loss = self.pose_loss(estimated_pose_vect.float(), prev_current_odom.float())
+                    GT_x = GT_x + GT_prev_current_x
+                    GT_y = GT_y + GT_prev_current_y
+                    GT_z = GT_z + GT_prev_current_z
 
-                            ### Accumulate total loss ###
-                            loss_sum += float(self.loss.item())
+                    plt.plot(GT_x, GT_z, 'ro')
+                    plt.pause(0.001)
+                    plt.show(block=False)
 
-                            print('[Epoch {}/{}][Sequence : {}][batch_idx : {}] - Batch Loss : {:.4} / Total Loss : {:.4}'.format(epoch, self.test_epoch ,sequence, batch_idx, float(self.loss.item()), loss_sum))
+                    ### Loss Computation ###
+                    
+                    self.loss = self.translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]) + 100 * self.rotation_loss(estimated_pose_vect.float()[:, 3:], prev_current_odom.float()[:, 3:])
+                
+                    ### Translation/Rotation Loss ###
+                    T_loss = self.translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]).item()
+                    test_T_loss_sum += T_loss
 
-                        else:
+                    R_loss = 100 * self.rotation_loss(estimated_pose_vect.float()[:, 3:], prev_current_odom.float()[:, 3:]).item()
+                    test_R_loss_sum += T_loss
+                    
+                    ### Accumulate total loss ###
+                    test_loss_sum += float(self.loss.item())
+                    test_length += 1
 
-                            print('Index 0, 1 Skip')
+                    updates = []
+                    updates.append('\n')
+                    updates.append('[Test Epoch {}/{}][Progress : {:.2%}][Batch Idx : {}] \n'.format(epoch, self.test_epoch, batch_idx/len(self.test_loader), batch_idx))
+                    updates.append('Batch Loss : {:.4f} / Translation Loss : {:.4f} / Rotation Loss : {:.4f} \n'.format(self.loss.item(), T_loss, R_loss))
+                    updates.append('Average Loss : {:.4f} / Avg Translation Loss : {:.4f} / Avg Rotation Loss : {:.4f} \n'.format(test_loss_sum/test_length, test_T_loss_sum/test_length, test_R_loss_sum/test_length))
+                    final_updates = ''.join(updates)
+
+                    sys.stdout.write(final_updates)
+
+                    # if batch_idx < len(self.test_loader)-1:
+                    #     for line_num in range(len(updates)):
+                    #         sys.stdout.write("\x1b[1A\x1b[2K")
 
                 after_epoch = time.time()
-
-                test_loss.append(loss_sum)
-
-                if self.plot_epoch == True:
-                    plt.clf()
-                    plt.figure(figsize=(20, 8))
-                    plt.plot(range(len(test_loss)), test_loss, 'bo-')
-                    plt.title('CNN VO Test with KITTI [Total MSE Loss]\nTest Sequence ' + str(self.test_sequence))
-                    plt.xlabel('Test Length')
-                    plt.ylabel('Total Loss')
-                    plt.savefig(self.model_path + 'Test ' + start_time + '.png')
