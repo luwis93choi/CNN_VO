@@ -19,7 +19,7 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
     def __init__(self, name='',
                        img_dataset_path='', pose_dataset_path='', 
                        transform=None,  
-                       sequence=['00'], verbose=0):
+                       sequence=['00'], verbose=0, cm=False):
 
         self.name = name
 
@@ -37,6 +37,8 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
         self.reader = None
 
         self.verbose = verbose
+
+        self.cm = cm
 
         self.dataset_dict = open('./' + self.name + '_dataset_dict.csv', 'w', encoding='utf-8', newline='')
         self.dataset_writer = csv.writer(self.dataset_dict)
@@ -148,9 +150,16 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
         prev_pose_pitch = float(current_data_row[13])
         prev_pose_yaw = float(current_data_row[14])
 
-        dx = current_pose_x - prev_pose_x
-        dy = current_pose_y - prev_pose_y
-        dz = current_pose_z - prev_pose_z
+        if self.cm is True:
+            dx = 100 * (current_pose_x - prev_pose_x)
+            dy = 100 * (current_pose_y - prev_pose_y)
+            dz = 100 * (current_pose_z - prev_pose_z)
+
+        else:
+            dx = (current_pose_x - prev_pose_x)
+            dy = (current_pose_y - prev_pose_y)
+            dz = (current_pose_z - prev_pose_z)
+
         droll = current_pose_roll - prev_pose_roll
         dpitch = current_pose_pitch - prev_pose_pitch
         dyaw = current_pose_yaw - prev_pose_yaw

@@ -106,13 +106,13 @@ class trainer_gray():
                                                 img_dataset_path=self.img_dataset_path,
                                                 pose_dataset_path=self.pose_dataset_path,
                                                 transform=train_loader_preprocess_param,
-                                                sequence=train_sequence, verbose=0)
+                                                sequence=train_sequence, verbose=0, cm=False)
 
         Valid_KITTI_Dataset = KITTI_Dataset_gray(name='KITTI_Valid',
                                                 img_dataset_path=self.img_dataset_path,
                                                 pose_dataset_path=self.pose_dataset_path,
                                                 transform=valid_loader_preprocess_param,
-                                                sequence=valid_sequence, verbose=0)
+                                                sequence=valid_sequence, verbose=0, cm=False)
 
         self.train_loader = torch.utils.data.DataLoader(Train_KITTI_Dataset, batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True)
 
@@ -121,11 +121,9 @@ class trainer_gray():
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
 
         self.train_translation_loss = nn.MSELoss()
-        #self.train_rotation_loss = nn.MSELoss()
         
         self.valid_translation_loss = nn.MSELoss()
-        #self.valid_rotation_loss = nn.MSELoss()
-
+        
         summary(self.NN_model, (torch.zeros((1, 2, 192, 640)).to(self.PROCESSOR)))
 
         self.NN_model.train()
@@ -175,14 +173,12 @@ class trainer_gray():
 
                 ### Backpropagation & Parameter Update ###
                 self.optimizer.zero_grad()
-                #self.train_loss = self.train_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]) + self.train_rotation_loss(estimated_pose_vect.float()[:, 3:], prev_current_odom.float()[:, 3:])
                 self.train_loss = self.train_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3])
                 self.train_loss.backward()
                 #torch.nn.utils.clip_grad_norm_(self.NN_model.parameters(), max_norm=1)
                 self.optimizer.step()
 
                 ### Translation/Rotation Loss ###
-                #T_loss = self.train_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]).item()
                 T_loss = self.train_translation_loss(estimated_pose_vect.float(), prev_current_odom.float()).item()
                 train_T_loss_sum += T_loss
 
@@ -222,11 +218,9 @@ class trainer_gray():
                     ### Model Train ###
                     estimated_pose_vect = self.NN_model(prev_current_img)
 
-                    #self.valid_loss = self.valid_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]) + self.valid_rotation_loss(estimated_pose_vect.float()[:, 3:], prev_current_odom.float()[:, 3:])
                     self.valid_loss = self.valid_translation_loss(estimated_pose_vect.float(), prev_current_odom.float())
                 
                     ### Translation/Rotation Loss ###
-                    #T_loss = self.valid_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]).item()
                     T_loss = self.valid_translation_loss(estimated_pose_vect.float(), prev_current_odom.float()).item()
                     valid_T_loss_sum += T_loss
 
@@ -268,17 +262,17 @@ class trainer_gray():
             valid_loss.append(valid_loss_sum/valid_length)
             print(valid_loss)
 
-            with open('./' + start_time + '/CNN VO Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
+            with open('./' + start_time + '/CNN VO-Grayscale Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
                 pickle.dump(training_loss, loss_file)
 
-            with open('./' + start_time + '/CNN VO Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
+            with open('./' + start_time + '/CNN VO-Grayscale Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
                 pickle.dump(valid_loss, loss_file)
 
-            torch.save(self.NN_model, './' + start_time + '/CNN_VO_' + start_time + '.pth')
+            torch.save(self.NN_model, './' + start_time + '/CNN VO-Grayscale' + start_time + '.pth')
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
-                        'loss' : self.train_loss}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
+                        'loss' : self.train_loss}, './' + start_time + '/CNN VO-Grayscale_state_dict_' + start_time + '.pth')
 
             if self.plot_epoch == True:
                 plt.cla()
@@ -286,14 +280,14 @@ class trainer_gray():
                 plt.ylabel('Total Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
                 plt.plot(range(len(valid_loss)), valid_loss, 'ro-')
-                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
+                plt.title('CNN VO-Grayscale Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
 
                 plt.cla()
                 plt.xlabel('Training Length')
                 plt.ylabel('Average Loss')
                 plt.plot(range(len(training_loss)), training_loss, 'bo-')
-                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
+                plt.title('CNN VO-Grayscale Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Loss-only Results ' + start_time + '.png')
 
                 print('Epoch {} Complete | Model Saved \n'.format(epoch))

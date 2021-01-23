@@ -1,4 +1,4 @@
-from dataloader_v2_gray import KITTI_Dataset
+from dataloader_v2_gray import KITTI_Dataset_gray
 
 from notifier import notifier_Outlook
 
@@ -79,11 +79,11 @@ class tester_gray():
 
         self.NN_model.eval()
 
-        Test_KITTI_Dataset = KITTI_Dataset(name='KITTI_Test',
-                                           img_dataset_path=self.img_dataset_path,
-                                           pose_dataset_path=self.pose_dataset_path,
-                                           transform=loader_preprocess_param,
-                                           sequence=test_sequence, verbose=0)
+        Test_KITTI_Dataset = KITTI_Dataset_gray(name='KITTI_Test',
+                                                img_dataset_path=self.img_dataset_path,
+                                                pose_dataset_path=self.pose_dataset_path,
+                                                transform=loader_preprocess_param,
+                                                sequence=test_sequence, verbose=0)
 
         self.test_loader = torch.utils.data.DataLoader(Test_KITTI_Dataset, batch_size=self.test_batch, num_workers=8, shuffle=False, drop_last=True)
 
