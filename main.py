@@ -1,14 +1,12 @@
 from NN01_CNN_VO import CNN_VO
 from NN02_CNN_VO_gray import CNN_VO_Gray
+from NN03_CNN_VO_gray_ensemble import CNN_VO_Gray_Ensemble
 from NN04_CNN_GRU_VO import CNN_GRU
-
-from dataloader import voDataLoader
 
 from model_trainer import trainer
 from model_tester import tester
 
-from trainer_autoencoder import trainer_autoencoder
-from tester_autoencoder import tester_autoencoder
+from model_trainer_gray_ensemble import trainer_gray_ensemble
 
 from model_trainer_gray import trainer_gray
 from model_tester_gray import tester_gray
@@ -129,6 +127,24 @@ if args['mode'] == 'train':
                                     valid_sequence=valid_sequence, valid_batch=1, 
                                     plot_epoch=True,
                                     sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '3':
+
+        print('CNN-based VO - Grayscale Ensemble')
+
+        NN_model = CNN_VO_Gray_Ensemble()
+
+        model_trainer = trainer_gray_ensemble(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                            train_loader_preprocess_param=train_preprocess,
+                                            valid_loader_preprocess_param=valid_preprocess,
+                                            model_path=model_path,
+                                            img_dataset_path=img_dataset_path,
+                                            pose_dataset_path=pose_dataset_path,
+                                            learning_rate=learning_rate,
+                                            train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
+                                            valid_sequence=valid_sequence, valid_batch=1, 
+                                            plot_epoch=True,
+                                            sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     elif model_type == '4':
 
