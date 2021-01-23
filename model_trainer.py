@@ -140,7 +140,7 @@ class trainer():
         training_loss = []
         valid_loss = []
 
-        plt.figure(figsize=(40,30))
+        plt.figure(figsize=(30,50))
 
         for epoch in range(self.train_epoch):
             
@@ -178,7 +178,7 @@ class trainer():
                 #self.train_loss = self.train_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3]) + self.train_rotation_loss(estimated_pose_vect.float()[:, 3:], prev_current_odom.float()[:, 3:])
                 self.train_loss = self.train_translation_loss(estimated_pose_vect.float()[:, :3], prev_current_odom.float()[:, :3])
                 self.train_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.NN_model.parameters(), max_norm=1)
+                #torch.nn.utils.clip_grad_norm_(self.NN_model.parameters(), max_norm=1)
                 self.optimizer.step()
 
                 ### Translation/Rotation Loss ###
