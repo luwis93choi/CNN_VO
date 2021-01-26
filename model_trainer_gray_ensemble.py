@@ -103,16 +103,18 @@ class trainer_gray_ensemble():
                 self.model_path = './'
 
         Train_KITTI_Dataset = KITTI_Dataset_gray(name='KITTI_Train',
-                                                img_dataset_path=self.img_dataset_path,
-                                                pose_dataset_path=self.pose_dataset_path,
-                                                transform=train_loader_preprocess_param,
-                                                sequence=train_sequence, verbose=0, cm=False)
+                                                                img_dataset_path=self.img_dataset_path,
+                                                                pose_dataset_path=self.pose_dataset_path,
+                                                                train_transform=train_loader_preprocess_param,
+                                                                valid_transform=valid_loader_preprocess_param,
+                                                                sequence=train_sequence, verbose=0)
 
         Valid_KITTI_Dataset = KITTI_Dataset_gray(name='KITTI_Valid',
-                                                img_dataset_path=self.img_dataset_path,
-                                                pose_dataset_path=self.pose_dataset_path,
-                                                transform=valid_loader_preprocess_param,
-                                                sequence=valid_sequence, verbose=0, cm=False)
+                                                                img_dataset_path=self.img_dataset_path,
+                                                                pose_dataset_path=self.pose_dataset_path,
+                                                                train_transform=train_loader_preprocess_param,
+                                                                valid_transform=valid_loader_preprocess_param,
+                                                                sequence=valid_sequence, verbose=0)
 
         self.train_loader = torch.utils.data.DataLoader(Train_KITTI_Dataset, batch_size=self.train_batch, num_workers=8, shuffle=True, drop_last=True)
 
@@ -120,15 +122,15 @@ class trainer_gray_ensemble():
 
         self.optimizer = optim.Adam(self.NN_model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
 
-        self.train_translation_loss_E1 = nn.MSELoss()
-        self.train_translation_loss_E2 = nn.MSELoss()
-        self.train_translation_loss_E3 = nn.MSELoss()
+        self.train_translation_loss_x = nn.MSELoss()
+        self.train_translation_loss_y = nn.MSELoss()
+        self.train_translation_loss_z = nn.MSELoss()
         
-        self.valid_translation_loss_E1 = nn.MSELoss()
-        self.valid_translation_loss_E2 = nn.MSELoss()
-        self.valid_translation_loss_E3 = nn.MSELoss()
+        self.valid_translation_loss_x = nn.MSELoss()
+        self.valid_translation_loss_y = nn.MSELoss()
+        self.valid_translation_loss_z = nn.MSELoss()
         
-        summary(self.NN_model, (torch.zeros((1, 2, 192, 640)).to(self.PROCESSOR)))
+        summary(self.NN_model, (torch.zeros((1, 6, 192, 640)).to(self.PROCESSOR)))
 
         self.NN_model.train()
 
@@ -139,15 +141,16 @@ class trainer_gray_ensemble():
 
         start_time = str(datetime.datetime.now())
 
-        training_loss_ensemble = []
-        training_loss_E1 = []
-        training_loss_E2 = []
-        training_loss_E3 = []
+        training_loss = []
+        valid_loss = []
 
-        valid_loss_ensemble = []
-        valid_loss_E1 = []
-        valid_loss_E2 = []
-        valid_loss_E3 = []
+        training_loss_x = []
+        training_loss_y = []
+        training_loss_z = []
+
+        valid_loss_x = []
+        valid_loss_y = []
+        valid_loss_z = []
 
         plt.figure(figsize=(30,50))
 
@@ -155,16 +158,24 @@ class trainer_gray_ensemble():
             
             print('----- [EPOCH] : {} -----'.format(epoch))
 
-            train_average_ensemble_loss = 0.0
-            train_loss_sum_E1 = 0.0
-            train_loss_sum_E2 = 0.0
-            train_loss_sum_E3 = 0.0
+            train_loss_sum = 0.0
+            train_T_loss_sum = 0.0
+            train_R_loss_sum = 0.0
+            
+            train_loss_sum_x = 0.0
+            train_loss_sum_y = 0.0
+            train_loss_sum_z = 0.0
+
             train_length = 0
 
-            valid_average_ensemble_loss = 0.0
-            valid_loss_sum_E1 = 0.0
-            valid_loss_sum_E2 = 0.0
-            valid_loss_sum_E3 = 0.0
+            valid_loss_sum = 0.0
+            valid_T_loss_sum = 0.0
+            valid_R_loss_sum = 0.0
+
+            valid_loss_sum_x = 0.0
+            valid_loss_sum_y = 0.0
+            valid_loss_sum_z = 0.0
+
             valid_length = 0
 
             before_epoch = time.time()
@@ -178,7 +189,7 @@ class trainer_gray_ensemble():
                     prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                 ### Model Train ###
-                estimated_pose_E1, estimated_pose_E2, estimated_pose_E3 = self.NN_model(prev_current_img)
+                estimated_x, estimated_y, estimated_z = self.NN_model(prev_current_img)
 
                 # print('--------------------------------------')
                 # print(estimated_pose_vect)
@@ -186,31 +197,33 @@ class trainer_gray_ensemble():
 
                 ### Backpropagation & Parameter Update ###
                 self.optimizer.zero_grad()
-
-                self.train_loss_E1 = self.train_translation_loss_E1(estimated_pose_E1.float()[:, :3], prev_current_odom.float()[:, :3])
-                self.train_loss_E1.backward()
-
-                self.train_loss_E2 = self.train_translation_loss_E2(estimated_pose_E2.float()[:, :3], prev_current_odom.float()[:, :3])
-                self.train_loss_E2.backward()
+                self.train_loss_x = self.train_translation_loss_x(estimated_x.float()[:, 0], prev_current_odom.float()[:, 0])
+                self.train_loss_y = self.train_translation_loss_y(estimated_y.float()[:, 0], prev_current_odom.float()[:, 1])
+                self.train_loss_z = self.train_translation_loss_z(estimated_z.float()[:, 0], prev_current_odom.float()[:, 2])
                 
-                self.train_loss_E3 = self.train_translation_loss_E3(estimated_pose_E3.float()[:, :3], prev_current_odom.float()[:, :3])
-                self.train_loss_E3.backward()
+                # self.train_loss.backward()
+                self.train_loss_x.backward(retain_graph=True)
+                self.train_loss_y.backward(retain_graph=True)
+                self.train_loss_z.backward()
                 #torch.nn.utils.clip_grad_norm_(self.NN_model.parameters(), max_norm=1)
                 self.optimizer.step()
 
+                ### Translation/Rotation Loss ###
+                T_loss_x = self.train_loss_x.item()
+                T_loss_y = self.train_loss_y.item()
+                T_loss_z = self.train_loss_z.item()
+
                 ### Accumulate total loss ###
-                train_loss_sum_E1 += float(self.train_loss_E1.item())
-                train_loss_sum_E2 += float(self.train_loss_E2.item())
-                train_loss_sum_E3 += float(self.train_loss_E3.item())
+                train_loss_sum_x += T_loss_x
+                train_loss_sum_y += T_loss_y
+                train_loss_sum_z += T_loss_z
                 train_length += 1
 
                 updates = []
                 updates.append('\n')
                 updates.append('[Train Epoch {}/{}][Progress : {:.2%}][Batch Idx : {}] \n'.format(epoch, self.train_epoch, batch_idx/len(self.train_loader), batch_idx))
-                #updates.append('Ensemble Average Loss : {:.4f} \n'.format(average_prediction))
-                updates.append('Average Loss E1 : {:.4f} \n'.format(train_loss_sum_E1/train_length))
-                updates.append('Average Loss E2 : {:.4f} \n'.format(train_loss_sum_E2/train_length))
-                updates.append('Average Loss E3 : {:.4f} \n'.format(train_loss_sum_E3/train_length))
+                updates.append('[Batch Loss] X Loss : {:.4f} / Y Loss : {:.4f} / Z Loss : {:.4f} \n'.format(T_loss_x, T_loss_y, T_loss_z))
+                updates.append('[Average Loss] X Loss : {:.4f} / Y Loss : {:.4f} / Z Loss : {:.4f} \n'.format(train_loss_sum_x/train_length, train_loss_sum_y/train_length, train_loss_sum_z/train_length))
                 final_updates = ''.join(updates)
 
                 sys.stdout.write(final_updates)
@@ -222,7 +235,6 @@ class trainer_gray_ensemble():
             with torch.no_grad():
 
                 self.NN_model.eval()
-                    
                 for batch_idx, (prev_current_img, prev_current_odom) in enumerate(self.valid_loader):
                     
                     ### Data GPU Transfer ###
@@ -231,26 +243,34 @@ class trainer_gray_ensemble():
                         prev_current_odom = prev_current_odom.to(self.PROCESSOR)
 
                     ### Model Train ###
-                    estimated_pose_E1, estimated_pose_E2, estimated_pose_E3 = self.NN_model(prev_current_img)
+                    estimated_x, estimated_y, estimated_z = self.NN_model(prev_current_img)
 
-                    self.valid_loss_E1 = self.valid_translation_loss_E1(estimated_pose_E1.float()[:, :3], prev_current_odom.float()[:, :3])
+                    #self.valid_loss = self.valid_translation_loss(estimated_pose_vect.float(), prev_current_odom.float())
+                    self.valid_loss_x = self.valid_translation_loss_x(estimated_x.float()[:, 0], prev_current_odom.float()[:, 0])
+                    self.valid_loss_y = self.valid_translation_loss_y(estimated_y.float()[:, 0], prev_current_odom.float()[:, 1])
+                    self.valid_loss_z = self.valid_translation_loss_z(estimated_z.float()[:, 0], prev_current_odom.float()[:, 2])
                     
-                    self.valid_loss_E2 = self.valid_translation_loss_E2(estimated_pose_E2.float()[:, :3], prev_current_odom.float()[:, :3])
-                    
-                    self.valid_loss_E3 = self.valid_translation_loss_E3(estimated_pose_E3.float()[:, :3], prev_current_odom.float()[:, :3])
-                    
+                    ### Translation/Rotation Loss ###
+                    # T_loss = self.valid_translation_loss(estimated_pose_vect.float(), prev_current_odom.float()).item()
+                    # valid_T_loss_sum += T_loss
+                    T_loss_x = self.valid_loss_x.item()
+                    T_loss_y = self.valid_loss_y.item()
+                    T_loss_z = self.valid_loss_z.item()
+
                     ### Accumulate total loss ###
-                    valid_loss_sum_E1 += float(self.valid_loss_E1.item())
-                    valid_loss_sum_E2 += float(self.valid_loss_E2.item())
-                    valid_loss_sum_E3 += float(self.valid_loss_E3.item())
+                    # valid_loss_sum += float(self.valid_loss.item())
+                    valid_loss_sum_x += T_loss_x
+                    valid_loss_sum_y += T_loss_y
+                    valid_loss_sum_z += T_loss_z
                     valid_length += 1
 
                     updates = []
                     updates.append('\n')
                     updates.append('[Valid Epoch {}/{}][Progress : {:.2%}][Batch Idx : {}] \n'.format(epoch, self.train_epoch, batch_idx/len(self.valid_loader), batch_idx))
-                    updates.append('Average Loss E1 : {:.4f} \n'.format(valid_loss_sum_E1/valid_length))
-                    updates.append('Average Loss E2 : {:.4f} \n'.format(valid_loss_sum_E2/valid_length))
-                    updates.append('Average Loss E3 : {:.4f} \n'.format(valid_loss_sum_E3/valid_length))
+                    # updates.append('Batch Loss : {:.4f} / Translation Loss : {:.4f} \n'.format(self.valid_loss.item(), T_loss))
+                    updates.append('[Batch Loss] X Loss : {:.4f} / Y Loss : {:.4f} / Z Loss : {:.4f} \n'.format(T_loss_x, T_loss_y, T_loss_z))
+                    # updates.append('Average Loss : {:.4f} / Avg Translation Loss : {:.4f} \n'.format(valid_loss_sum/valid_length, valid_T_loss_sum/valid_length))
+                    updates.append('[Average Loss] X Loss : {:.4f} / Y Loss : {:.4f} / Z Loss : {:.4f} \n'.format(valid_loss_sum_x/train_length, valid_loss_sum_y/train_length, valid_loss_sum_z/train_length))
                     final_updates = ''.join(updates)
 
                     sys.stdout.write(final_updates)
@@ -268,61 +288,52 @@ class trainer_gray_ensemble():
             if epoch == 0:
                 print('Creating save directory')
                 os.mkdir('./' + start_time)
-            
-            training_loss_E1.append(train_loss_sum_E1/train_length)
-            training_loss_E2.append(train_loss_sum_E2/train_length)
-            training_loss_E3.append(train_loss_sum_E3/train_length)
 
-            valid_loss_E1.append(valid_loss_sum_E1/valid_length)
-            valid_loss_E2.append(valid_loss_sum_E2/valid_length)
-            valid_loss_E3.append(valid_loss_sum_E3/valid_length)
+            training_loss_x.append(train_loss_sum_x/train_length)
+            training_loss_y.append(train_loss_sum_y/train_length)
+            training_loss_z.append(train_loss_sum_z/train_length)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_1 Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(training_loss_E1, loss_file)
+            valid_loss_x.append(valid_loss_sum_x/valid_length)
+            valid_loss_y.append(valid_loss_sum_y/valid_length)
+            valid_loss_z.append(valid_loss_sum_z/valid_length)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_2 Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(training_loss_E2, loss_file)
+            with open('./' + start_time + '/CNN VO Avg Training Loss X ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(training_loss_x, loss_file)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_3 Avg Training Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(training_loss_E3, loss_file)
+            with open('./' + start_time + '/CNN VO Avg Training Loss Y ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(training_loss_y, loss_file)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_1 Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(valid_loss_E1, loss_file)
+            with open('./' + start_time + '/CNN VO Avg Training Loss Z ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(training_loss_z, loss_file)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_2 Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(valid_loss_E2, loss_file)
+            with open('./' + start_time + '/CNN VO Avg Validation Loss X ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(valid_loss_x, loss_file)
 
-            with open('./' + start_time + '/CNN VO-Grayscale-Ensemble_3 Avg Validation Loss ' + start_time + '.txt', 'wb') as loss_file:
-                pickle.dump(valid_loss_E3, loss_file)
+            with open('./' + start_time + '/CNN VO Avg Validation Loss Y ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(valid_loss_x, loss_file)
 
-            torch.save(self.NN_model, './' + start_time + '/CNN VO-Grayscale-Ensemble' + start_time + '.pth')
+            with open('./' + start_time + '/CNN VO Avg Validation Loss Z ' + start_time + '.txt', 'wb') as loss_file:
+                pickle.dump(valid_loss_x, loss_file)
+
+            torch.save(self.NN_model, './' + start_time + '/CNN_VO_' + start_time + '.pth')
             torch.save({'epoch' : epoch,
                         'model_state_dict' : self.NN_model.state_dict(),
                         'optimizer_state_dict' : self.optimizer.state_dict(),
-                        'loss_E1' : self.train_loss_E1,
-                        'loss_E2' : self.train_loss_E2,
-                        'loss_E3' : self.train_loss_E3}, './' + start_time + '/CNN VO-Grayscale-Ensemble_state_dict_' + start_time + '.pth')
+                        'loss_x' : self.train_loss_x,
+                        'loss_y' : self.train_loss_y,
+                        'loss_z' : self.train_loss_z}, './' + start_time + '/CNN_VO_state_dict_' + start_time + '.pth')
 
             if self.plot_epoch == True:
                 plt.cla()
                 plt.xlabel('Training Length')
                 plt.ylabel('Total Loss')
-                plt.plot(range(len(training_loss_E1)), training_loss_E1, 'bo-')
-                plt.plot(range(len(training_loss_E2)), training_loss_E2, 'go-')
-                plt.plot(range(len(training_loss_E3)), training_loss_E3, 'ro-')
-                plt.plot(range(len(valid_loss_E1)), valid_loss_E1, 'bo--')
-                plt.plot(range(len(valid_loss_E2)), valid_loss_E2, 'go--')
-                plt.plot(range(len(valid_loss_E3)), valid_loss_E3, 'ro--')
-                plt.title('CNN VO-Grayscale-Ensemble Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
+                plt.plot(range(len(training_loss_x)), training_loss_x, 'bo-')
+                plt.plot(range(len(training_loss_y)), training_loss_y, 'go-')
+                plt.plot(range(len(training_loss_z)), training_loss_z, 'ro-')
+                plt.plot(range(len(valid_loss_x)), valid_loss_x, 'bo--')
+                plt.plot(range(len(valid_loss_y)), valid_loss_y, 'go--')
+                plt.plot(range(len(valid_loss_z)), valid_loss_z, 'ro--')
+                plt.title('CNN VO Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
                 plt.savefig('./' + start_time + '/Training Results ' + start_time + '.png')
-
-                plt.cla()
-                plt.xlabel('Training Length')
-                plt.ylabel('Average Loss')
-                plt.plot(range(len(training_loss_E1)), training_loss_E1, 'bo-')
-                plt.plot(range(len(training_loss_E2)), training_loss_E2, 'go-')
-                plt.plot(range(len(training_loss_E3)), training_loss_E3, 'ro-')
-                plt.title('CNN VO-Grayscale-Ensemble Training with KITTI [Average MSE Loss]\nTrain Sequence ' + str(self.train_sequence) + ' | Valid Sequence ' + str(self.valid_sequence) + '\nLearning Rate : ' + str(self.learning_rate) + ' Batch Size : ' + str(self.train_batch) + '\nPreprocessing : ' + str(self.train_loader_preprocess_param))
-                plt.savefig('./' + start_time + '/Training Loss-only Results ' + start_time + '.png')
 
                 print('Epoch {} Complete | Model Saved \n'.format(epoch))
