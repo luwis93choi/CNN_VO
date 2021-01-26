@@ -1,19 +1,3 @@
-from NN01_CNN_VO import CNN_VO
-from NN02_CNN_VO_gray import CNN_VO_Gray
-from NN03_CNN_VO_gray_ensemble import CNN_VO_Gray_Ensemble
-from NN04_CNN_GRU_VO import CNN_GRU
-
-from model_trainer import trainer
-from model_tester import tester
-
-from model_trainer_gray_ensemble import trainer_gray_ensemble
-
-from model_trainer_gray import trainer_gray
-from model_tester_gray import tester_gray
-
-from model_trainer_RNN import trainer_RNN
-from model_tester_RNN import tester_RNN
-
 import torch
 import torch.optim as optim
 from torchvision import transforms
@@ -28,6 +12,27 @@ from matplotlib import pyplot as plt
 import argparse
 import sys
 import os
+
+torch.manual_seed(42)
+np.random.seed(42)
+
+from NN01_CNN_VO import CNN_VO
+from NN02_CNN_VO_gray import CNN_VO_Gray
+from NN03_CNN_VO_gray_ensemble import CNN_VO_Gray_Ensemble
+from NN04_CNN_GRU_VO import CNN_GRU
+
+from model_trainer import trainer
+from model_tester import tester
+
+from model_trainer_v3 import trainer_v3
+
+from model_trainer_gray_ensemble import trainer_gray_ensemble
+
+from model_trainer_gray import trainer_gray
+from model_tester_gray import tester_gray
+
+from model_trainer_RNN import trainer_RNN
+from model_tester_RNN import tester_RNN
 
 ### Argument Parser
 ap = argparse.ArgumentParser()
@@ -64,10 +69,11 @@ batch_size = args['batch_size']
 learning_rate = args['learning_rate']
 
 train_sequence = ['00', '01', '02', '06', '10']
+#train_sequence = ['00', '01', '02', '06', '10', '04', '03', '05']
 #train_sequence = ['01']
 valid_sequence = ['04', '03', '05']
 #test_sequence = ['07', '08', '09']
-test_sequence = ['00']
+test_sequence = ['08']
 
 normalize = transforms.Normalize(
     
@@ -78,9 +84,9 @@ normalize = transforms.Normalize(
 train_preprocess = transforms.Compose([
     transforms.Resize((192, 640)),
     transforms.CenterCrop((192, 640)),
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0, saturation=0, hue=0)], p=0.5),
-    transforms.RandomApply([transforms.ColorJitter(brightness=0, contrast=0.5, saturation=0, hue=0)], p=0.5),
-    transforms.RandomApply([transforms.RandomAffine(degrees=0, scale=(1, 1.2))], p=0.5),
+    # transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0, saturation=0, hue=0)], p=0.5),
+    # transforms.RandomApply([transforms.ColorJitter(brightness=0, contrast=0.5, saturation=0, hue=0)], p=0.5),
+    # transforms.RandomApply([transforms.RandomAffine(degrees=0, scale=(1, 1.2))], p=0.5),
     transforms.ToTensor(),
 ])
 
@@ -160,6 +166,25 @@ if args['mode'] == 'train':
                                     learning_rate=learning_rate,
                                     train_epoch=epoch, train_sequence=train_sequence, train_batch=batch_size,
                                     valid_sequence=valid_sequence, valid_batch=batch_size, plot_epoch=True,
+                                    sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
+
+    elif model_type == '5':
+
+        print('CNN-based VO - Grayscale')
+
+        NN_model = CNN_VO_Gray()
+
+        model_trainer = trainer_v3(NN_model=NN_model, use_cuda=True, cuda_num=cuda_num,
+                                    train_loader_preprocess_param=train_preprocess,
+                                    valid_loader_preprocess_param=valid_preprocess,
+                                    model_path=model_path,
+                                    img_dataset_path=img_dataset_path,
+                                    pose_dataset_path=pose_dataset_path,
+                                    learning_rate=learning_rate,
+                                    data_sequence=train_sequence, 
+                                    train_epoch=epoch, train_batch=batch_size,
+                                    valid_batch=1, 
+                                    plot_epoch=True,
                                     sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     model_trainer.train()
@@ -276,5 +301,34 @@ elif args['mode'] == 'test':
                                 plot_epoch=True,
                                 sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
+
+    elif model_type == '5':
+
+        print('CNN-based VO (Grayscale)- Test')
+
+        NN_model = CNN_VO_Gray()
+
+        if cuda_num is None:
+            cuda_num = ''
+            checkpoint = torch.load(model_path)
+        
+        else:
+            checkpoint = torch.load(model_path, map_location='cuda:'+cuda_num)
+            print('map_location : cuda:{}'.format(cuda_num))
+
+        if checkpoint != None:
+            print('Load complete')
+        else:
+            sys.exit('[main ERROR] Invalid checkpoint loading')
+
+        model_tester = tester_gray(NN_model=NN_model, checkpoint=checkpoint,
+                                model_path=model_path,
+                                use_cuda=True, cuda_num=cuda_num,
+                                loader_preprocess_param=valid_preprocess,
+                                img_dataset_path=img_dataset_path, 
+                                pose_dataset_path=pose_dataset_path,
+                                test_epoch=epoch, test_sequence=test_sequence, test_batch=batch_size,
+                                plot_epoch=True,
+                                sender_email=args['sender_email'], sender_email_pw=args['sender_pw'], receiver_email=args['receiver_email'])
 
     model_tester.run_test()
