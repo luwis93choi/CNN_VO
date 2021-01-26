@@ -11,15 +11,22 @@ from PIL import Image   # Load images from the dataset
 
 import torch
 import torch.utils.data
-import torchvision.transforms as tranforms
+import torchvision.transforms as transforms
+import torchvision.transforms.functional as TF
 from matplotlib import pyplot as plt
+
+from sklearn.model_selection import train_test_split
+
+torch.manual_seed(42)
+np.random.seed(42)
 
 class KITTI_Dataset_gray(torch.utils.data.Dataset):
 
     def __init__(self, name='',
                        img_dataset_path='', pose_dataset_path='', 
-                       transform=None,  
-                       sequence=['00'], verbose=0, cm=False):
+                       train_transform=None,  
+                       valid_transform=None,  
+                       sequence=['00'], verbose=0, cm=False, mode='training'):
 
         self.name = name
 
@@ -32,7 +39,8 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
 
         self.len = 0    # The size of dataset in use
 
-        self.transform = transform      # Image transformation conditions (Resolution Change)
+        self.train_transform = train_transform
+        self.valid_transform = valid_transform
 
         self.reader = None
 
@@ -40,6 +48,8 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
 
         self.cm = cm
 
+        self.mode = mode
+        
         self.dataset_dict = open('./' + self.name + '_dataset_dict.csv', 'w', encoding='utf-8', newline='')
         self.dataset_writer = csv.writer(self.dataset_dict)
         
@@ -115,13 +125,39 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
             self.len += 1
         self.dataset_dict.close()
 
+    def transform_func(self, current_img, prev_img, height=640, width=192):
+
+        resize = transforms.Resize(size=(width, height))
+        current_img = resize(current_img)
+        prev_img = resize(prev_img)
+
+        if random.random() >= 0.5:
+            random_brightness = random.uniform(0.8, 1.2)
+            current_img = TF.adjust_brightness(current_img, brightness_factor=random_brightness)
+            prev_img = TF.adjust_brightness(prev_img, brightness_factor=random_brightness)
+
+        if random.random() >= 0.5:
+            random_contrast = random.uniform(0.8, 1.2)
+            current_img = TF.adjust_contrast(current_img, contrast_factor=random_contrast)
+            prev_img = TF.adjust_contrast(prev_img, contrast_factor=random_contrast)
+
+        if random.random() >= 0.5:
+            random_scale = random.uniform(1.0, 1.5)
+            current_img = TF.affine(current_img, scale=random_scale, translate=(0, 0), angle=0, shear=0)
+            prev_img = TF.affine(prev_img, scale=random_scale, translate=(0, 0), angle=0, shear=0)
+
+        current_img = TF.to_tensor(current_img)
+        prev_img = TF.to_tensor(prev_img)
+
+        return current_img, prev_img
+
     # Dataset Load Function
     def __getitem__(self, index):
         
         current_data_row = self.data_list[index]
 
-        current_img = Image.open(current_data_row[1]).convert('L')
-        prev_img = Image.open(current_data_row[2]).convert('L')
+        current_img = Image.open(current_data_row[1]).convert('RGB')
+        prev_img = Image.open(current_data_row[2]).convert('RGB')
 
         if self.verbose == 1:
             combined_img = Image.new('L', (prev_img.width + current_img.width, prev_img.height))
@@ -132,9 +168,20 @@ class KITTI_Dataset_gray(torch.utils.data.Dataset):
             plt.show(block=False)
             plt.clf()
 
-        if self.transform is not None:
-            current_img = self.transform(current_img)
-            prev_img = self.transform(prev_img)
+        if self.mode == 'training':
+            
+            if self.train_transform is not None:
+
+                # current_img = self.train_transform(current_img)
+                # prev_img = self.train_transform(prev_img)
+                current_img, prev_img = self.transform_func(current_img, prev_img)
+
+        elif self.mode == 'validation':
+            
+            if self.valid_transform is not None:
+                
+                current_img = self.valid_transform(current_img)
+                prev_img = self.valid_transform(prev_img)
 
         current_pose_x = float(current_data_row[3])
         current_pose_y = float(current_data_row[4])
