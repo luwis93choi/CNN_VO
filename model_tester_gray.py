@@ -1,7 +1,3 @@
-from dataloader_v2_gray import KITTI_Dataset_gray
-
-from notifier import notifier_Outlook
-
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -18,6 +14,13 @@ from matplotlib import pyplot as plt
 import sys
 import os
 import pickle
+
+torch.manual_seed(42)
+np.random.seed(42)
+
+from dataloader_v2_gray import KITTI_Dataset_gray
+
+from notifier import notifier_Outlook
 
 class tester_gray():
 
